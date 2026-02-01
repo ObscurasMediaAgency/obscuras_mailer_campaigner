@@ -1,0 +1,26 @@
+Sehr geehrte Damen und Herren der Kanzlei {{KANZLEINAME}},
+
+bei der Nutzung Ihrer Website ({{DOMAIN}}) auf Smartphones und Tablets ist mir folgende Problematik aufgefallen:
+
+"{{PROBLEM}}"
+
+Da ein erheblicher Teil der Mandantensuche inzwischen über mobile Endgeräte erfolgt, kann eine eingeschränkte Darstellung den professionellen Gesamteindruck Ihrer Kanzlei negativ beeinflussen.
+
+Ich habe mich auf die technische und gestalterische Optimierung von Kanzlei-Websites spezialisiert – mit besonderem Fokus auf mobile Performance und barrierefreie Darstellung.
+
+Gerne würde ich Ihnen unverbindlich aufzeigen, welche konkreten Anpassungen sinnvoll wären und wie Ihre Website technisch sowie optisch modernisiert werden könnte.
+
+Dies kann sowohl durch gezielte Korrekturen der bestehenden Seite als auch im Rahmen eines strukturellen Relaunchs erfolgen.
+
+Sofern Interesse besteht, sende ich Ihnen gern eine kurze Einschätzung mit Lösungsvorschlag – selbstverständlich ohne Verpflichtung.
+
+---
+
+Mit freundlichen Grüßen
+
+Sascha Gebel
+Gründer & Entwickler
+
+Obscuras Media Agency
+Digitale Softwarelösungen
+https://obscuras-media-agency.de

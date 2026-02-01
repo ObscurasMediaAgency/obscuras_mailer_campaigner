@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════════════
+# ABSENDER-KONFIGURATION
+# ═══════════════════════════════════════════════════════════════════
+# Diese Daten werden in allen Kampagnen verwendet
+
+sender:
+  name: "Sascha Gebel"
+  title: "Gründer & Entwickler"
+  email: "mail@obscuras-media-agency.de"
+
+company:
+  name: "Obscuras Media Agency"
+  domain: "obscuras-media-agency.de"
+  url: "https://obscuras-media-agency.de"
+
+# ═══════════════════════════════════════════════════════════════════
+# E-MAIL VERSAND
+# ═══════════════════════════════════════════════════════════════════
+
+smtp:
+  # Werte werden aus Umgebungsvariablen geladen
+  # Fallback-Werte nur für Dokumentation
+  host_env: "SMTP_HOST"
+  port_env: "SMTP_PORT"
+  user_env: "SMTP_USER"
+  pass_env: "SMTP_PASS"
+
+# Rate Limiting
+rate_limit:
+  delay_seconds: 80  # 50 Mails/Stunde = 72s (80s mit Puffer)
+  max_per_hour: 50

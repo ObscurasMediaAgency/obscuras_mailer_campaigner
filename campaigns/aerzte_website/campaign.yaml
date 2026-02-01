@@ -1,0 +1,58 @@
+# ═══════════════════════════════════════════════════════════════════
+# KAMPAGNEN-KONFIGURATION: Arztpraxen
+# ═══════════════════════════════════════════════════════════════════
+
+name: "Arztpraxen – Website-Modernisierung"
+subject: "Ihre Praxis-Website: Verbesserungspotenzial erkannt"
+
+contacts: "contacts.csv"
+
+# ═══════════════════════════════════════════════════════════════════
+# ANSCHREIBEN-INHALT
+# ═══════════════════════════════════════════════════════════════════
+
+content:
+  greeting: "Sehr geehrte Damen und Herren der Praxis <strong style=\"color:#a78bfa;\">{{PRAXISNAME}}</strong>,"
+
+  intro: |
+    bei der Nutzung Ihrer Website 
+    <a href="{{DOMAIN}}" style="color:#818cf8;text-decoration:none;border-bottom:1px solid #818cf8;">{{DOMAIN}}</a> 
+    ist mir aufgefallen, dass Optimierungspotenzial besteht:
+
+  highlight: "{{PROBLEM}}"
+
+  body:
+    - "Immer mehr Patienten suchen online nach Ärzten und Praxen. Eine moderne, mobiloptimierte Website ist dabei oft der erste Eindruck, den potenzielle Patienten von Ihrer Praxis gewinnen."
+    - "Ich habe mich auf die <strong style=\"color:#d4d4d8;\">Entwicklung von Praxis-Websites</strong> spezialisiert – mit Fokus auf Benutzerfreundlichkeit, Online-Terminbuchung und barrierefreie Darstellung."
+    - "Gerne zeige ich Ihnen auf, wie Ihre Website modernisiert werden könnte – ohne aufwendigen Relaunch, falls gewünscht."
+
+  cta:
+    text: "Kostenlose Erstberatung →"
+    url: "https://obscuras-media-agency.de/kontakt"
+
+# ═══════════════════════════════════════════════════════════════════
+# PLAINTEXT-VERSION
+# ═══════════════════════════════════════════════════════════════════
+
+plaintext: |
+  Sehr geehrte Damen und Herren der Praxis {{PRAXISNAME}},
+
+  bei der Nutzung Ihrer Website ({{DOMAIN}}) ist mir aufgefallen, dass Optimierungspotenzial besteht:
+
+  "{{PROBLEM}}"
+
+  Immer mehr Patienten suchen online nach Ärzten und Praxen. Eine moderne, mobiloptimierte Website ist dabei oft der erste Eindruck, den potenzielle Patienten von Ihrer Praxis gewinnen.
+
+  Ich habe mich auf die Entwicklung von Praxis-Websites spezialisiert – mit Fokus auf Benutzerfreundlichkeit, Online-Terminbuchung und barrierefreie Darstellung.
+
+  Gerne zeige ich Ihnen auf, wie Ihre Website modernisiert werden könnte.
+
+  ---
+
+  Mit freundlichen Grüßen
+
+  Sascha Gebel
+  Gründer & Entwickler
+
+  Obscuras Media Agency
+  https://obscuras-media-agency.de
