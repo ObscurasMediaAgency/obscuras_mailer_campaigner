@@ -66,7 +66,6 @@ class Sidebar(QWidget):
         self.setStyleSheet("""
             QWidget {
                 background-color: #0a0a0f;
-                border-right: 1px solid #27272a;
             }
         """)
         
@@ -82,15 +81,18 @@ class Sidebar(QWidget):
         # LOGO / HEADER
         # ═══════════════════════════════════════════════════════════
         header = QWidget()
+        header.setFixedHeight(220)
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(8, 0, 0, 0)
+        header_layout.setContentsMargins(8, 10, 8, 10)
         
         # Logo aus Datei laden
         logo_label = QLabel()
+        logo_label.setFixedSize(200, 200)
+        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         if LOGO_PATH.exists():
             pixmap = QPixmap(str(LOGO_PATH))
             scaled_pixmap = pixmap.scaled(
-                36, 36, 
+                200, 200, 
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
@@ -100,35 +102,12 @@ class Sidebar(QWidget):
             # Fallback: Text-Symbol
             logo_label.setText("◈")
             logo_label.setStyleSheet("""
-                font-size: 28px;
+                font-size: 56px;
                 color: #6366f1;
             """)
             logger.warning(f"Logo nicht gefunden: {LOGO_PATH}")
         
         header_layout.addWidget(logo_label)
-        
-        title_container = QWidget()
-        title_layout = QVBoxLayout(title_container)
-        title_layout.setContentsMargins(8, 0, 0, 0)
-        title_layout.setSpacing(0)
-        
-        title = QLabel("OBSCURAS")
-        title.setStyleSheet("""
-            font-size: 16px;
-            font-weight: 700;
-            color: #fafafa;
-            letter-spacing: 1px;
-        """)
-        title_layout.addWidget(title)
-        
-        subtitle = QLabel("Campaign Manager")
-        subtitle.setStyleSheet("""
-            font-size: 11px;
-            color: #71717a;
-        """)
-        title_layout.addWidget(subtitle)
-        
-        header_layout.addWidget(title_container)
         header_layout.addStretch()
         
         layout.addWidget(header)
@@ -150,6 +129,7 @@ class Sidebar(QWidget):
             font-weight: 600;
             color: #52525b;
             padding-left: 12px;
+            padding-top: 8px;
             padding-bottom: 8px;
         """)
         layout.addWidget(section_label)
@@ -181,11 +161,13 @@ class Sidebar(QWidget):
             font-weight: 600;
             color: #52525b;
             padding-left: 12px;
+            padding-top: 8px;
             padding-bottom: 8px;
         """)
         layout.addWidget(settings_label)
         
         settings_items = [
+            ("🏢", "Firma / Branding", "company"),
             ("⚙️", "SMTP-Profile", "smtp"),
             ("🚫", "Blacklist", "blacklist"),
         ]

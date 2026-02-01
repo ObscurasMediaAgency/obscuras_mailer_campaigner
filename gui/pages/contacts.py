@@ -282,9 +282,9 @@ class ContactsPage(QWidget):
         # CONTACTS TABLE
         # ═══════════════════════════════════════════════════════════
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "E-Mail", "Firma", "Domain", "Status", "Kampagne", "Gesendet"
+            "E-Mail", "Firma", "Domain", "Status", "Kampagne", "Gesendet", "Aktionen"
         ])
         
         header = self.table.horizontalHeader()
@@ -295,10 +295,12 @@ class ContactsPage(QWidget):
             header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
             header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
             header.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
+            header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)
         
         self.table.setColumnWidth(2, 180)
         self.table.setColumnWidth(3, 100)
         self.table.setColumnWidth(5, 150)
+        self.table.setColumnWidth(6, 120)
         
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
@@ -368,6 +370,37 @@ class ContactsPage(QWidget):
                 sent_at = contact.sent_at.strftime("%d.%m.%Y %H:%M") if contact.sent_at else "-"
                 self.table.setItem(row, 5, QTableWidgetItem(sent_at))
                 
+                # Aktionen
+                actions_widget = QWidget()
+                actions_layout = QHBoxLayout(actions_widget)
+                actions_layout.setContentsMargins(4, 4, 4, 4)
+                actions_layout.setSpacing(4)
+                
+                edit_btn = QPushButton("✎")
+                edit_btn.setObjectName("iconButton")
+                edit_btn.setFixedSize(28, 28)
+                edit_btn.setToolTip("Kontakt bearbeiten")
+                edit_btn.setStyleSheet("font-size: 14px;")
+                edit_btn.clicked.connect(lambda _, cid=contact.id: self._edit_contact(cid))  # type: ignore[arg-type]
+                actions_layout.addWidget(edit_btn)
+                
+                blacklist_btn = QPushButton("⊘")
+                blacklist_btn.setObjectName("iconButton")
+                blacklist_btn.setFixedSize(28, 28)
+                blacklist_btn.setToolTip("Zur Blacklist hinzufügen")
+                blacklist_btn.setStyleSheet("font-size: 14px;")
+                blacklist_btn.clicked.connect(lambda _, cid=contact.id: self._blacklist_contact(cid))  # type: ignore[arg-type]
+                actions_layout.addWidget(blacklist_btn)
+                
+                delete_btn = QPushButton("✖")
+                delete_btn.setObjectName("iconButton")
+                delete_btn.setFixedSize(28, 28)
+                delete_btn.setToolTip("Kontakt löschen")
+                delete_btn.setStyleSheet("font-size: 14px; color: #ef4444;")
+                delete_btn.clicked.connect(lambda _, cid=contact.id: self._delete_contact(cid))  # type: ignore[arg-type]
+                actions_layout.addWidget(delete_btn)
+                
+                self.table.setCellWidget(row, 6, actions_widget)
                 self.table.setRowHeight(row, 44)
             
             # Stats aktualisieren
@@ -480,6 +513,82 @@ class ContactsPage(QWidget):
             QMessageBox.critical(self, "Fehler", f"Import fehlgeschlagen:\n{e}")
         finally:
             session.close()
+    
+    def _edit_contact(self, contact_id: int) -> None:
+        """Edit a contact."""
+        session = get_session_simple()
+        try:
+            contact = session.query(Contact).filter(Contact.id == contact_id).first()
+            if contact:
+                from PyQt6.QtWidgets import QInputDialog
+                new_email, ok = QInputDialog.getText(
+                    self, 
+                    "Kontakt bearbeiten",
+                    "E-Mail-Adresse:",
+                    text=contact.email or ""
+                )
+                if ok and new_email:
+                    contact.email = new_email.strip().lower()
+                    session.commit()
+                    log_user_action("Kontakt bearbeitet", new_email)
+                    self._load_contacts()
+        finally:
+            session.close()
+    
+    def _blacklist_contact(self, contact_id: int) -> None:
+        """Add contact to blacklist."""
+        session = get_session_simple()
+        try:
+            contact = session.query(Contact).filter(Contact.id == contact_id).first()
+            if contact:
+                reply = QMessageBox.question(
+                    self,
+                    "Zur Blacklist hinzufügen",
+                    f"'{contact.email}' zur Blacklist hinzufügen?\nDer Kontakt wird nicht mehr kontaktiert.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    contact.status = ContactStatus.BLACKLISTED
+                    
+                    # Auch zur globalen Blacklist hinzufügen
+                    from models.blacklist import BlacklistEntry, BlacklistReason, BlacklistType
+                    existing = session.query(BlacklistEntry).filter(BlacklistEntry.value == contact.email).first()
+                    if not existing:
+                        blacklist_entry = BlacklistEntry(
+                            value=contact.email,
+                            entry_type=BlacklistType.EMAIL,
+                            reason=BlacklistReason.MANUAL,
+                        )
+                        session.add(blacklist_entry)
+                    
+                    session.commit()
+                    log_user_action("Kontakt blacklisted", contact.email)
+                    self._load_contacts()
+        finally:
+            session.close()
+    
+    def _delete_contact(self, contact_id: int) -> None:
+        """Delete a contact."""
+        reply = QMessageBox.question(
+            self,
+            "Kontakt löschen",
+            "Möchten Sie diesen Kontakt wirklich löschen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            session = get_session_simple()
+            try:
+                contact = session.query(Contact).filter(Contact.id == contact_id).first()
+                if contact:
+                    email = contact.email
+                    session.delete(contact)
+                    session.commit()
+                    log_user_action("Kontakt gelöscht", email)
+                    self._load_contacts()
+            finally:
+                session.close()
     
     def refresh(self):
         """Refresh the contacts list."""

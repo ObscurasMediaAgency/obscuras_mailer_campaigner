@@ -465,7 +465,7 @@ def run_campaign(
     # Kontakte und bereits versendete laden
     contacts = campaign.get_contacts()
     sent_emails = load_sent_emails(campaign.log_file)
-    bounced_emails = get_bounced_emails() if skip_bounced else set()
+    bounced_emails: Set[str] = get_bounced_emails() if skip_bounced else set()
     
     pending = [
         c for c in contacts 

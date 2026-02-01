@@ -19,6 +19,7 @@ from gui.pages.contacts import ContactsPage
 from gui.pages.templates import TemplatesPage
 from gui.pages.smtp_settings import SmtpSettingsPage
 from gui.pages.blacklist import BlacklistPage
+from gui.pages.company_settings import CompanySettingsPage
 from utils.logging_config import get_logger, log_user_action
 
 logger = get_logger("gui.main_window")
@@ -31,7 +32,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         logger.info("MainWindow wird initialisiert...")
         
-        self.setWindowTitle("Obscuras Campaign Manager")
+        self.setWindowTitle("Mailer Campaigner - Obscuras Media Agency")
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
         
@@ -128,10 +129,12 @@ class MainWindow(QMainWindow):
             
             preview_action = QAction("&Vorschau", self)
             preview_action.setShortcut(QKeySequence("Ctrl+P"))
+            preview_action.triggered.connect(self._on_preview)
             campaign_menu.addAction(preview_action)
             
             test_send_action = QAction("&Test-E-Mail senden", self)
             test_send_action.setShortcut(QKeySequence("Ctrl+T"))
+            test_send_action.triggered.connect(self._on_test_email)
             campaign_menu.addAction(test_send_action)
         
         # ═══════════════════════════════════════════════════════════
@@ -139,6 +142,10 @@ class MainWindow(QMainWindow):
         # ═══════════════════════════════════════════════════════════
         settings_menu = menubar.addMenu("&Einstellungen")
         if settings_menu is not None:
+            company_action = QAction("&Firma / Branding", self)
+            company_action.triggered.connect(lambda: self.navigate_to("company"))
+            settings_menu.addAction(company_action)
+            
             smtp_action = QAction("&SMTP-Profile", self)
             smtp_action.triggered.connect(lambda: self.navigate_to("smtp"))
             settings_menu.addAction(smtp_action)
@@ -226,7 +233,13 @@ class MainWindow(QMainWindow):
             "templates": TemplatesPage(),
             "smtp": SmtpSettingsPage(),
             "blacklist": BlacklistPage(),
+            "company": CompanySettingsPage(),
         }
+        
+        # Set navigate_to callback for pages that need it
+        dashboard_page = self.pages["dashboard"]
+        if hasattr(dashboard_page, 'navigate_to'):
+            dashboard_page.navigate_to = self.navigate_to  # type: ignore[attr-defined]
         
         # Add pages to stack
         for _, page in self.pages.items():
@@ -311,6 +324,26 @@ class MainWindow(QMainWindow):
             <p>&copy; 2025 Obscuras Media Agency</p>
             <p><a href="https://obscuras-media-agency.de">obscuras-media-agency.de</a></p>
             """
+        )
+    
+    def _on_preview(self) -> None:
+        """Show campaign preview."""
+        logger.info("Vorschau anzeigen")
+        self.navigate_to("campaigns")
+        QMessageBox.information(
+            self,
+            "Vorschau",
+            "Bitte öffnen Sie eine Kampagne zum Bearbeiten und klicken Sie dort auf 'Vorschau'."
+        )
+    
+    def _on_test_email(self) -> None:
+        """Send test email."""
+        logger.info("Testmail senden")
+        self.navigate_to("campaigns")
+        QMessageBox.information(
+            self,
+            "Test-E-Mail",
+            "Bitte öffnen Sie eine Kampagne zum Bearbeiten und klicken Sie dort auf 'Testmail senden'."
         )
     
     def closeEvent(self, a0: QCloseEvent | None) -> None:

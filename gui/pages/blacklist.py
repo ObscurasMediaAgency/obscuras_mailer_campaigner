@@ -287,14 +287,18 @@ class BlacklistPage(QWidget):
             actions_layout.setContentsMargins(4, 4, 4, 4)
             actions_layout.setSpacing(4)
             
-            delete_btn = QPushButton("🗑")
+            delete_btn = QPushButton("✖")
+            delete_btn.setObjectName("iconButton")
             delete_btn.setFixedSize(28, 28)
             delete_btn.setToolTip("Entfernen")
+            delete_btn.setStyleSheet("font-size: 14px; color: #ef4444;")
             actions_layout.addWidget(delete_btn)
             
-            info_btn = QPushButton("ℹ️")
+            info_btn = QPushButton("ⓘ")
+            info_btn.setObjectName("iconButton")
             info_btn.setFixedSize(28, 28)
             info_btn.setToolTip("Details")
+            info_btn.setStyleSheet("font-size: 14px; color: #6366f1;")
             actions_layout.addWidget(info_btn)
             
             self.table.setCellWidget(row, 4, actions)

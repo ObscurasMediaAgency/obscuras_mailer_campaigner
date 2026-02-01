@@ -193,10 +193,11 @@ class DashboardPage(QWidget):
         header_layout.addStretch()
         
         # Quick action button
-        new_btn = QPushButton("+ Neue Kampagne")
-        new_btn.setObjectName("primaryButton")
-        new_btn.setFixedHeight(40)
-        header_layout.addWidget(new_btn)
+        self.new_btn = QPushButton("+ Neue Kampagne")
+        self.new_btn.setObjectName("primaryButton")
+        self.new_btn.setFixedHeight(40)
+        self.new_btn.clicked.connect(self._on_new_campaign)
+        header_layout.addWidget(self.new_btn)
         
         layout.addWidget(header)
         
@@ -244,6 +245,7 @@ class DashboardPage(QWidget):
                 color: #818cf8;
             }
         """)
+        view_all.clicked.connect(self._on_view_all_campaigns)
         campaigns_header_layout.addWidget(view_all)
         
         layout.addWidget(campaigns_header)
@@ -424,3 +426,20 @@ class DashboardPage(QWidget):
         """Refresh activity log."""
         # Wird in zukünftiger Version implementiert
         pass
+    
+    def _on_new_campaign(self) -> None:
+        """Handle new campaign button click."""
+        if callable(self.navigate_to):
+            self.navigate_to("campaigns")
+            # Signal an MainWindow um Dialog zu öffnen
+            parent = self.parent()
+            while parent is not None:
+                if hasattr(parent, '_on_new_campaign'):
+                    parent._on_new_campaign()  # type: ignore[attr-defined]
+                    return
+                parent = parent.parent()
+    
+    def _on_view_all_campaigns(self) -> None:
+        """Handle view all campaigns button click."""
+        if callable(self.navigate_to):
+            self.navigate_to("campaigns")

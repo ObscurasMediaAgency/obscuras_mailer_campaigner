@@ -178,6 +178,14 @@ QPushButton[class="danger"] {
     border-color: #ef4444;
 }
 
+/* Icon Buttons (small action buttons in tables) */
+QPushButton#iconButton {
+    font-size: 16px;
+    padding: 2px;
+    min-width: 28px;
+    min-height: 28px;
+}
+
 /* ═══════════════════════════════════════════════════════════════ */
 /* INPUT FIELDS                                                     */
 /* ═══════════════════════════════════════════════════════════════ */

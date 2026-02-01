@@ -1,0 +1,25 @@
+branding:
+  company_name: ''
+  logo_path: ''
+  primary_color: '#6366f1'
+  tagline: ''
+contact:
+  address: ''
+  email: ''
+  phone: ''
+  website: ''
+footer:
+  text: ''
+  unsubscribe_text: Abmelden
+legal:
+  ceo_name: ''
+  imprint_url: ''
+  legal_name: ''
+  privacy_url: ''
+  register_info: ''
+  vat_id: ''
+social:
+  facebook: ''
+  instagram: ''
+  linkedin: ''
+  xing: ''

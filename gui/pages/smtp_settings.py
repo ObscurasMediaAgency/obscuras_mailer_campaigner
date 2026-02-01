@@ -424,21 +424,27 @@ class SmtpSettingsPage(QWidget):
                 actions_layout.setContentsMargins(4, 4, 4, 4)
                 actions_layout.setSpacing(4)
                 
-                edit_btn = QPushButton("✏️")
+                edit_btn = QPushButton("✎")
+                edit_btn.setObjectName("iconButton")
                 edit_btn.setFixedSize(28, 28)
                 edit_btn.setToolTip("Bearbeiten")
+                edit_btn.setStyleSheet("font-size: 14px;")
                 edit_btn.clicked.connect(lambda _, pid=profile.id: self._edit_profile(pid))  # type: ignore[arg-type]
                 actions_layout.addWidget(edit_btn)
                 
-                test_btn = QPushButton("🔌")
+                test_btn = QPushButton("↻")
+                test_btn.setObjectName("iconButton")
                 test_btn.setFixedSize(28, 28)
                 test_btn.setToolTip("Testen")
+                test_btn.setStyleSheet("font-size: 14px; color: #6366f1;")
                 test_btn.clicked.connect(lambda _, pid=profile.id: self._test_profile(pid))  # type: ignore[arg-type]
                 actions_layout.addWidget(test_btn)
                 
-                delete_btn = QPushButton("🗑")
+                delete_btn = QPushButton("✖")
+                delete_btn.setObjectName("iconButton")
                 delete_btn.setFixedSize(28, 28)
                 delete_btn.setToolTip("Löschen")
+                delete_btn.setStyleSheet("font-size: 14px; color: #ef4444;")
                 delete_btn.clicked.connect(lambda _, pid=profile.id: self._delete_profile(pid))  # type: ignore[arg-type]
                 actions_layout.addWidget(delete_btn)
                 
