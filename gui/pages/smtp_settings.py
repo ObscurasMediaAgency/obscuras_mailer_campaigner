@@ -4,7 +4,6 @@ SMTP profile management interface.
 """
 
 import smtplib
-import ssl
 from typing import Any
 
 from PyQt6.QtWidgets import (
@@ -230,10 +229,11 @@ class SmtpProfileDialog(QDialog):
             logger.info(f"Teste SMTP-Verbindung zu {host}:{port}")
             
             if use_ssl:
-                context = ssl.create_default_context()
-                server = smtplib.SMTP_SSL(host, port, context=context, timeout=10)
+                # Verwende SMTP_SSL ohne strikten Context (wie send_campaign.py)
+                # Manche Shared-Hosting-Server haben Zertifikate für andere Hostnamen
+                server = smtplib.SMTP_SSL(host, port, timeout=15)
             else:
-                server = smtplib.SMTP(host, port, timeout=10)
+                server = smtplib.SMTP(host, port, timeout=15)
                 if use_tls:
                     server.starttls()
             
@@ -486,10 +486,10 @@ class SmtpSettingsPage(QWidget):
                     password = profile.get_password()
                     
                     if profile.use_ssl:
-                        context = ssl.create_default_context()
-                        server = smtplib.SMTP_SSL(profile.host, profile.port, context=context, timeout=10)
+                        # Ohne strikten SSL-Context (Shared-Hosting-Kompatibilität)
+                        server = smtplib.SMTP_SSL(profile.host, profile.port, timeout=15)
                     else:
-                        server = smtplib.SMTP(profile.host, profile.port, timeout=10)
+                        server = smtplib.SMTP(profile.host, profile.port, timeout=15)
                         if profile.use_tls:
                             server.starttls()
                     
