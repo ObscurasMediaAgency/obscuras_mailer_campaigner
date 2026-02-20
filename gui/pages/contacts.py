@@ -29,7 +29,8 @@ class ImportWizardDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Kontakte importieren")
-        self.setMinimumSize(600, 500)
+        self.setMinimumSize(650, 900)
+        self.resize(650, 900)
         self.file_path: str | None = None
         self._setup_ui()
     
@@ -58,12 +59,18 @@ class ImportWizardDialog(QDialog):
         # CAMPAIGN SELECTION
         # ═══════════════════════════════════════════════════════════
         campaign_group = QGroupBox("2. Kampagne zuordnen")
-        campaign_layout = QFormLayout(campaign_group)
+        campaign_layout = QHBoxLayout(campaign_group)
+        campaign_layout.setContentsMargins(12, 20, 12, 16)
+        
+        campaign_label = QLabel("Kampagne:")
+        campaign_label.setFixedWidth(100)
+        campaign_layout.addWidget(campaign_label)
         
         self.campaign_combo = QComboBox()
+        self.campaign_combo.setFixedHeight(36)
         self._load_campaigns()
         self.campaign_combo.addItem("+ Neue Kampagne erstellen...")
-        campaign_layout.addRow("Kampagne:", self.campaign_combo)
+        campaign_layout.addWidget(self.campaign_combo, 1)
         
         layout.addWidget(campaign_group)
         
@@ -71,20 +78,54 @@ class ImportWizardDialog(QDialog):
         # FIELD MAPPING
         # ═══════════════════════════════════════════════════════════
         mapping_group = QGroupBox("3. Felder zuordnen")
-        mapping_layout = QFormLayout(mapping_group)
+        mapping_layout = QVBoxLayout(mapping_group)
+        mapping_layout.setSpacing(20)
+        mapping_layout.setContentsMargins(12, 24, 12, 20)
         
+        # E-Mail-Feld
+        email_row_widget = QWidget()
+        email_row_widget.setFixedHeight(44)
+        email_row = QHBoxLayout(email_row_widget)
+        email_row.setContentsMargins(0, 0, 0, 0)
+        email_label = QLabel("E-Mail-Feld:")
+        email_label.setFixedWidth(100)
+        email_row.addWidget(email_label)
         self.email_combo = QComboBox()
+        self.email_combo.setFixedHeight(36)
         self.email_combo.addItems(["EMAIL", "E-Mail", "email", "Mail"])
-        mapping_layout.addRow("E-Mail-Feld:", self.email_combo)
+        email_row.addWidget(self.email_combo, 1)
+        mapping_layout.addWidget(email_row_widget)
         
+        # Firmenname
+        company_row_widget = QWidget()
+        company_row_widget.setFixedHeight(44)
+        company_row = QHBoxLayout(company_row_widget)
+        company_row.setContentsMargins(0, 0, 0, 0)
+        company_label = QLabel("Firmenname:")
+        company_label.setFixedWidth(100)
+        company_row.addWidget(company_label)
         self.company_combo = QComboBox()
+        self.company_combo.setFixedHeight(36)
         self.company_combo.addItems(["PRAXISNAME", "FIRMA", "Company", "Unternehmen"])
-        mapping_layout.addRow("Firmenname:", self.company_combo)
+        company_row.addWidget(self.company_combo, 1)
+        mapping_layout.addWidget(company_row_widget)
         
+        # Domain
+        domain_row_widget = QWidget()
+        domain_row_widget.setFixedHeight(44)
+        domain_row = QHBoxLayout(domain_row_widget)
+        domain_row.setContentsMargins(0, 0, 0, 0)
+        domain_label = QLabel("Domain:")
+        domain_label.setFixedWidth(100)
+        domain_row.addWidget(domain_label)
         self.domain_combo = QComboBox()
+        self.domain_combo.setFixedHeight(36)
         self.domain_combo.addItems(["DOMAIN", "Website", "URL"])
-        mapping_layout.addRow("Domain:", self.domain_combo)
+        domain_row.addWidget(self.domain_combo, 1)
+        mapping_layout.addWidget(domain_row_widget)
         
+        mapping_group.setMinimumHeight(250)
+        mapping_group.setFixedHeight(250)
         layout.addWidget(mapping_group)
         
         # ═══════════════════════════════════════════════════════════

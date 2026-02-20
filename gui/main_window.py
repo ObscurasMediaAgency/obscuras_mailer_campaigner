@@ -115,14 +115,17 @@ class MainWindow(QMainWindow):
         if campaign_menu is not None:
             start_action = QAction("&Starten", self)
             start_action.setShortcut(QKeySequence("F5"))
+            start_action.triggered.connect(self._on_start_campaign)
             campaign_menu.addAction(start_action)
             
             pause_action = QAction("&Pausieren", self)
             pause_action.setShortcut(QKeySequence("F6"))
+            pause_action.triggered.connect(self._on_pause_campaign)
             campaign_menu.addAction(pause_action)
             
             stop_action = QAction("St&oppen", self)
             stop_action.setShortcut(QKeySequence("Shift+F5"))
+            stop_action.triggered.connect(self._on_stop_campaign)
             campaign_menu.addAction(stop_action)
             
             campaign_menu.addSeparator()
@@ -158,6 +161,7 @@ class MainWindow(QMainWindow):
             
             preferences_action = QAction("&Einstellungen...", self)
             preferences_action.setShortcut(QKeySequence("Ctrl+,"))
+            preferences_action.triggered.connect(self._on_preferences)
             settings_menu.addAction(preferences_action)
         
         # ═══════════════════════════════════════════════════════════
@@ -199,7 +203,7 @@ class MainWindow(QMainWindow):
         # Refresh button
         refresh_btn = QPushButton("🔄 Aktualisieren")
         refresh_btn.clicked.connect(self._on_refresh)
-        refresh_btn.setShortcut(QKeySequence("F5"))
+        refresh_btn.setShortcut(QKeySequence("Ctrl+R"))
         toolbar.addWidget(refresh_btn)
         
         # Spacer
@@ -345,6 +349,56 @@ class MainWindow(QMainWindow):
             "Test-E-Mail",
             "Bitte öffnen Sie eine Kampagne zum Bearbeiten und klicken Sie dort auf 'Testmail senden'."
         )
+    
+    def _on_start_campaign(self) -> None:
+        """Start the selected campaign."""
+        logger.info("Kampagne starten")
+        log_user_action("Kampagne", "Starten")
+        self.navigate_to("campaigns")
+        campaigns_page = self.pages["campaigns"]
+        if hasattr(campaigns_page, 'start_selected_campaign'):
+            campaigns_page.start_selected_campaign()  # type: ignore[attr-defined]
+        else:
+            QMessageBox.information(
+                self,
+                "Kampagne starten",
+                "Bitte wählen Sie eine Kampagne aus der Liste und klicken Sie auf 'Starten'."
+            )
+    
+    def _on_pause_campaign(self) -> None:
+        """Pause the running campaign."""
+        logger.info("Kampagne pausieren")
+        log_user_action("Kampagne", "Pausieren")
+        campaigns_page = self.pages["campaigns"]
+        if hasattr(campaigns_page, 'pause_selected_campaign'):
+            campaigns_page.pause_selected_campaign()  # type: ignore[attr-defined]
+        else:
+            QMessageBox.information(
+                self,
+                "Kampagne pausieren",
+                "Keine laufende Kampagne zum Pausieren."
+            )
+    
+    def _on_stop_campaign(self) -> None:
+        """Stop the running campaign."""
+        logger.info("Kampagne stoppen")
+        log_user_action("Kampagne", "Stoppen")
+        campaigns_page = self.pages["campaigns"]
+        if hasattr(campaigns_page, 'stop_selected_campaign'):
+            campaigns_page.stop_selected_campaign()  # type: ignore[attr-defined]
+        else:
+            QMessageBox.information(
+                self,
+                "Kampagne stoppen",
+                "Keine laufende Kampagne zum Stoppen."
+            )
+    
+    def _on_preferences(self) -> None:
+        """Open preferences dialog."""
+        logger.info("Einstellungen öffnen")
+        log_user_action("Einstellungen", "Dialog geöffnet")
+        # Navigiere zu Firma/Branding als Standard-Einstellungsseite
+        self.navigate_to("company")
     
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         """Handle window close event."""
