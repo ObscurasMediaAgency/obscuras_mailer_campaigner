@@ -236,6 +236,7 @@ class ContactsPage(QWidget):
         
         self.add_btn = QPushButton("+ Hinzufügen")
         self.add_btn.setObjectName("primaryButton")
+        self.add_btn.clicked.connect(self._add_contact)
         header_layout.addWidget(self.add_btn)
         
         layout.addWidget(header)
@@ -590,6 +591,94 @@ class ContactsPage(QWidget):
             finally:
                 session.close()
     
+    def _add_contact(self) -> None:
+        """Add a new contact."""
+        # Eigenen Dialog erstellen für bessere Kontrolle
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Neuer Kontakt")
+        dialog.setMinimumWidth(450)
+        dialog.setModal(True)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+        
+        # Formular
+        form_layout = QFormLayout()
+        form_layout.setSpacing(12)
+        
+        email_input = QLineEdit()
+        email_input.setPlaceholderText("beispiel@domain.de")
+        email_input.setFixedHeight(36)
+        form_layout.addRow("E-Mail-Adresse:", email_input)
+        
+        company_input = QLineEdit()
+        company_input.setPlaceholderText("(optional)")
+        company_input.setFixedHeight(36)
+        form_layout.addRow("Firmenname:", company_input)
+        
+        domain_input = QLineEdit()
+        domain_input.setPlaceholderText("www.beispiel.de (optional)")
+        domain_input.setFixedHeight(36)
+        form_layout.addRow("Domain:", domain_input)
+        
+        layout.addLayout(form_layout)
+        
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+        
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        
+        email = email_input.text().strip().lower()
+        company = company_input.text().strip()
+        domain = domain_input.text().strip()
+        
+        if not email:
+            return
+        
+        session = get_session_simple()
+        try:
+            # Prüfen ob E-Mail bereits existiert
+            existing = session.query(Contact).filter(Contact.email == email).first()
+            if existing:
+                QMessageBox.warning(
+                    self,
+                    "Duplikat",
+                    f"Die E-Mail '{email}' existiert bereits."
+                )
+                return
+            
+            # Neuen Kontakt erstellen
+            contact = Contact(
+                email=email,
+                company_name=company if company else None,
+                domain=domain if domain else None,
+                status=ContactStatus.PENDING
+            )
+            session.add(contact)
+            session.commit()
+            
+            log_user_action("Kontakt hinzugefügt", email)
+            self._load_contacts()
+            
+            QMessageBox.information(
+                self,
+                "Erfolg",
+                f"Kontakt '{email}' wurde hinzugefügt."
+            )
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Fehler beim Hinzufügen: {e}")
+            QMessageBox.critical(self, "Fehler", f"Kontakt konnte nicht hinzugefügt werden:\n{e}")
+        finally:
+            session.close()
+
     def refresh(self):
         """Refresh the contacts list."""
         self._load_contacts()
