@@ -158,6 +158,7 @@ class StripeService:
             
             # Use price_id if configured (for recurring subscriptions)
             if self._price_id:
+                checkout_params["mode"] = "subscription"  # Switch to subscription mode
                 checkout_params["line_items"] = [{
                     "price": self._price_id,
                     "quantity": 1,
