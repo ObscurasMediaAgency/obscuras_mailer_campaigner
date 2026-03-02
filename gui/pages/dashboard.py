@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (
     QFrame, QGridLayout, QScrollArea, QPushButton,
     QProgressBar
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QMouseEvent
 
 from utils.logging_config import get_logger
 
@@ -73,9 +74,14 @@ class StatCard(QFrame):
 class CampaignRow(QFrame):
     """Campaign row widget for recent campaigns list."""
     
+    clicked = pyqtSignal(int)  # Emits campaign_id when clicked
+    
     def __init__(self, name: str, status: str, progress: int, 
-                 sent: int, total: int, parent: QWidget | None = None) -> None:
+                 sent: int, total: int, campaign_id: int = 0,
+                 parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        
+        self.campaign_id = campaign_id
         
         self.setStyleSheet("""
             QFrame {
@@ -126,6 +132,12 @@ class CampaignRow(QFrame):
         count_label.setFixedWidth(80)
         count_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(count_label)
+    
+    def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
+        """Handle mouse click to navigate to campaign."""
+        if a0 is not None:
+            self.clicked.emit(self.campaign_id)
+        super().mouseReleaseEvent(a0)
 
 
 class DashboardPage(QWidget):
@@ -251,23 +263,15 @@ class DashboardPage(QWidget):
         layout.addWidget(campaigns_header)
         
         # Campaign list
-        campaigns_container = QWidget()
-        campaigns_layout = QVBoxLayout(campaigns_container)
-        campaigns_layout.setContentsMargins(0, 0, 0, 0)
-        campaigns_layout.setSpacing(8)
+        self.campaigns_container = QWidget()
+        self.campaigns_layout = QVBoxLayout(self.campaigns_container)
+        self.campaigns_layout.setContentsMargins(0, 0, 0, 0)
+        self.campaigns_layout.setSpacing(8)
         
-        # Sample campaigns (will be loaded from DB)
-        sample_campaigns = [
-            ("Arztpraxen – Website-Modernisierung", "running", 45, 23, 50),
-            ("Kanzleien – Mobile Optimierung", "paused", 78, 78, 100),
-            ("Immobilien – Hausverwaltung", "draft", 0, 0, 150),
-        ]
+        # Kampagnen werden in _load_campaigns() geladen
+        self._load_campaigns()
         
-        for name, status, progress, sent, total in sample_campaigns:
-            row = CampaignRow(name, status, progress, sent, total)
-            campaigns_layout.addWidget(row)
-        
-        layout.addWidget(campaigns_container)
+        layout.addWidget(self.campaigns_container)
         
         # ═══════════════════════════════════════════════════════════
         # RECENT ACTIVITY
@@ -419,8 +423,7 @@ class DashboardPage(QWidget):
     
     def _refresh_campaigns(self):
         """Refresh campaign list."""
-        # Wird in zukünftiger Version implementiert
-        pass
+        self._load_campaigns()
     
     def _refresh_activities(self):
         """Refresh activity log."""
@@ -443,3 +446,61 @@ class DashboardPage(QWidget):
         """Handle view all campaigns button click."""
         if callable(self.navigate_to):
             self.navigate_to("campaigns")
+    
+    def _load_campaigns(self) -> None:
+        """Load campaigns from database and display them."""
+        # Clear existing rows
+        while self.campaigns_layout.count():
+            item = self.campaigns_layout.takeAt(0)
+            widget = item.widget() if item else None
+            if widget is not None:
+                widget.deleteLater()
+        
+        try:
+            from models.database import get_session_simple
+            from models.campaign import Campaign
+            
+            session = get_session_simple()
+            campaigns = session.query(Campaign).order_by(Campaign.updated_at.desc()).limit(5).all()
+            
+            if not campaigns:
+                # Zeige Hinweis wenn keine Kampagnen vorhanden
+                no_data_label = QLabel("Keine Kampagnen vorhanden")
+                no_data_label.setStyleSheet("color: #71717a; padding: 20px;")
+                no_data_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.campaigns_layout.addWidget(no_data_label)
+            else:
+                for campaign in campaigns:
+                    # Berechne Progress
+                    total = campaign.total_contacts or 0
+                    sent = campaign.sent_count or 0
+                    progress = int((sent / total * 100) if total > 0 else 0)
+                    
+                    # Status mapping
+                    status_value = campaign.status.value if hasattr(campaign.status, 'value') else str(campaign.status or "draft")
+                    
+                    row = CampaignRow(
+                        name=campaign.name or "Unbenannt",
+                        status=status_value,
+                        progress=progress,
+                        sent=sent,
+                        total=total,
+                        campaign_id=campaign.id
+                    )
+                    row.clicked.connect(self._on_campaign_clicked)
+                    self.campaigns_layout.addWidget(row)
+            
+            session.close()
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der Kampagnen: {e}")
+            error_label = QLabel("Fehler beim Laden")
+            error_label.setStyleSheet("color: #ef4444; padding: 20px;")
+            self.campaigns_layout.addWidget(error_label)
+    
+    def _on_campaign_clicked(self, campaign_id: int) -> None:
+        """Handle campaign row click - navigate to campaigns page."""
+        logger.info(f"Kampagne {campaign_id} angeklickt")
+        if callable(self.navigate_to):
+            self.navigate_to("campaigns")
+            # Optional: Kampagne direkt öffnen/auswählen
+            # Das könnte später erweitert werden
