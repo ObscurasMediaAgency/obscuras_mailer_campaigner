@@ -497,9 +497,24 @@ def run_campaign(
     success_count = 0
     error_count = 0
     
+    # License service für Limit-Kontrolle
+    try:
+        from utils.license_service import get_license_service
+        license_service = get_license_service()
+    except Exception:
+        license_service = None
+    
     try:
         for i, contact in enumerate(pending, 1):
             email = contact["EMAIL"]
+            
+            # Lizenz-Limit prüfen
+            if license_service:
+                can_send, limit_msg = license_service.can_send_email()
+                if not can_send:
+                    print(f"\n⚠️  Lizenz-Limit erreicht: {limit_msg}")
+                    print("   Kampagne wird pausiert.\n")
+                    break
             
             # Ersten Kontakt-Wert als Bezeichner nehmen
             identifier = list(contact.values())[0] if contact else "Unbekannt"
@@ -521,6 +536,11 @@ def run_campaign(
                     log_result(campaign.log_file, email, "OK")
                     success_count += 1
                     print("         ✅ Gesendet!")
+                    
+                    # E-Mail im Lizenz-Tracker erfassen
+                    if license_service:
+                        license_service.record_email_sent()
+                        
                 except Exception as e:
                     # Bounce-Handling
                     is_bounce, bounce_code = is_bounce_error(e)

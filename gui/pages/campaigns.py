@@ -667,6 +667,19 @@ class CampaignsPage(QWidget):
     
     def create_new_campaign(self):
         """Open dialog to create new campaign."""
+        # Check license limits
+        from utils.license_service import get_license_service
+        license_service = get_license_service()
+        can_create, message = license_service.can_create_campaign()
+        
+        if not can_create:
+            QMessageBox.warning(
+                self,
+                "Limit erreicht",
+                f"{message}\n\nUpgraden Sie auf Pro für unbegrenzte Kampagnen."
+            )
+            return
+        
         dialog = CampaignEditorDialog(parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_campaign_data()

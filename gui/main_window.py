@@ -20,6 +20,7 @@ from gui.pages.templates import TemplatesPage
 from gui.pages.smtp_settings import SmtpSettingsPage
 from gui.pages.blacklist import BlacklistPage
 from gui.pages.company_settings import CompanySettingsPage
+from gui.pages.license import LicensePage
 from utils.logging_config import get_logger, log_user_action
 
 logger = get_logger("gui.main_window")
@@ -238,6 +239,7 @@ class MainWindow(QMainWindow):
             "smtp": SmtpSettingsPage(),
             "blacklist": BlacklistPage(),
             "company": CompanySettingsPage(),
+            "license": LicensePage(),
         }
         
         # Set navigate_to callback for pages that need it

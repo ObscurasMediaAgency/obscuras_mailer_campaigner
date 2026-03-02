@@ -170,6 +170,7 @@ class Sidebar(QWidget):
             ("🏢", "Firma / Branding", "company"),
             ("⚙️", "SMTP-Profile", "smtp"),
             ("🚫", "Blacklist", "blacklist"),
+            ("🔑", "Lizenz", "license"),
         ]
         
         for icon, text, name in settings_items:
@@ -238,26 +239,23 @@ class Sidebar(QWidget):
     def _update_stats(self):
         """Update the quick stats from database."""
         try:
-            from datetime import datetime, timezone
-            from models.database import get_session_simple
-            from models.send_log import SendLog, SendResult
-            from sqlalchemy import func
+            from utils.license_service import get_license_service
             
-            session = get_session_simple()
-            today = datetime.now(timezone.utc).date()
+            license_service = get_license_service()
+            info = license_service.get_status_info()
             
-            # Heute versendete E-Mails zählen
-            sent_today = session.query(func.count(SendLog.id)).filter(
-                func.date(SendLog.sent_at) == today,
-                SendLog.result == SendResult.SUCCESS
-            ).scalar() or 0
+            sent_today: int = int(info.get("emails_sent_today", 0))
+            max_per_day: int = int(info.get("max_emails_per_day", 300))
             
-            session.close()
-            
-            max_per_day = 200  # TODO: Von Einstellungen laden
-            self.stats_value_label.setText(f"{sent_today} / {max_per_day}")
-            self.stats_progress.setMaximum(max_per_day)
-            self.stats_progress.setValue(min(sent_today, max_per_day))
+            # Für Pro-Lizenz "∞" anzeigen
+            if info.get("is_pro"):
+                self.stats_value_label.setText(f"{sent_today} / ∞")
+                self.stats_progress.setMaximum(1000)
+                self.stats_progress.setValue(min(sent_today, 1000))
+            else:
+                self.stats_value_label.setText(f"{sent_today} / {max_per_day}")
+                self.stats_progress.setMaximum(max_per_day)
+                self.stats_progress.setValue(min(sent_today, max_per_day))
             
             logger.debug(f"Stats aktualisiert: {sent_today}/{max_per_day}")
             

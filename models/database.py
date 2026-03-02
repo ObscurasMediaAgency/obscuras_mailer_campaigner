@@ -64,6 +64,7 @@ def init_database() -> None:
     __import__("models.send_log")
     __import__("models.template")
     __import__("models.blacklist")
+    __import__("models.license")
     
     Base.metadata.create_all(bind=engine)
     logger.info(f"✓ Datenbank initialisiert: {DATABASE_FILE}")
