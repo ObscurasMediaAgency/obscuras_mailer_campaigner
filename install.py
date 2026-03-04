@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ═══════════════════════════════════════════════════════════════════════════════
-  Obscuras Campaign Manager - Universal Installer
+  Obscuras Mailer Campaigner - Universal Installer
   Unterstützt: Linux, Windows, macOS
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -32,9 +32,9 @@ from typing import Optional, Tuple, List, Dict, Any
 # Konstanten
 # ═══════════════════════════════════════════════════════════════════════════════
 
-APP_NAME = "Obscuras Campaign Manager"
-APP_ID = "obscuras-campaign-manager"
-APP_VERSION = "1.0.0"
+APP_NAME = "Obscuras Mailer Campaigner"
+APP_ID = "obscuras-mailer-campaigner"
+APP_VERSION = "1.2.0"
 MIN_PYTHON_VERSION = (3, 10)
 VENV_DIR = ".venv"
 CONFIG_FILE = ".install_config.json"
@@ -420,7 +420,7 @@ class Installer:
         """Aktualisiert pip im venv."""
         print_info("Aktualisiere pip...")
         pip = get_pip_executable()
-        code, _, stderr = run_command([str(pip), "install", "--upgrade", "pip", "wheel", "setuptools"])
+        code, _, stderr = run_command([str(pip), "install", "--upgrade", "pip", "wheel", "six", "packaging", "appdirs", "setuptools"])
         
         if code == 0:
             print_success("pip aktualisiert")
