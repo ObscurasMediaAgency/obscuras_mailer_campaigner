@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# License Server Konfiguration
+# ═══════════════════════════════════════════════════════════════════════════
+# Diese Datei enthält KEINE sensiblen Daten und kann sicher verteilt werden.
+# Die Stripe-Keys liegen sicher auf dem Server unter:
+#   https://mailer-campaigner.de/api
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Basis-URL der Lizenz-API
+api_url: "https://mailer-campaigner.de/api"
+
+# API-Endpoints (relativ zu api_url)
+endpoints:
+  # POST: Erstellt Stripe Checkout Session
+  # Body: { "email": "kunde@example.com" }
+  # Response: { "success": true, "checkout_url": "https://checkout.stripe.com/..." }
+  checkout: "/checkout.php"
+  
+  # POST: Verifiziert einen Lizenzschlüssel
+  # Body: { "license_key": "XXXX-XXXX-XXXX-XXXX" }
+  # Response: { "valid": true, "email": "...", "expires": "2027-03-12", "product": "pro" }
+  verify: "/verify.php"
+  
+  # POST: Aktiviert Lizenz mit Schlüssel (optional, falls Client-seitig benötigt)
+  # Body: { "license_key": "XXXX-XXXX-XXXX-XXXX", "machine_id": "..." }
+  # Response: { "success": true, "message": "Lizenz aktiviert" }
+  activate: "/activate.php"
+
+# Produkt-Informationen (zur Anzeige in der Desktop-App)
+product:
+  name: "Obscuras Campaign Manager Pro"
+  price_eur: 129.00
+  license_duration_days: 365
+
+# URLs für Erfolgs-/Abbruchseiten (werden an Stripe übergeben)
+checkout_urls:
+  success: "https://mailer-campaigner.de/payment/success"
+  cancel: "https://mailer-campaigner.de/payment/cancel"
+
+# Timeout für API-Anfragen (in Sekunden)
+timeout: 30

@@ -1,6 +1,7 @@
 # Environment & Secrets
 .env
 *.env.local
+config/stripe.yaml
 
 # Logs
 logs/*.log

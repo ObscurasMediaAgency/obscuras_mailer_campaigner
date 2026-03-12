@@ -1,27 +1,37 @@
 """
-Obscuras Campaign Manager - Stripe Service
-Handles payment processing and subscription management.
+Obscuras Campaign Manager - License Server Client
+Kommuniziert mit der PHP-API für Zahlungen und Lizenzvalidierung.
+
+Die Stripe-Keys liegen sicher auf dem Server - diese App enthält keine sensiblen Daten.
 """
 
+import hashlib
 import os
+import platform
+import urllib.request
+import urllib.error
+import json
 import webbrowser
 from typing import Optional, Any
+from datetime import datetime
 
-import stripe
+import yaml
 
 from utils.logging_config import get_logger
-from utils.license_service import get_license_service, LicenseService
+from utils.license_service import get_license_service
 
 logger = get_logger("utils.stripe_service")
 
 
 class StripeService:
-    """Service for Stripe payment integration."""
+    """
+    Client für die License Server API.
     
-    # Product info
-    PRODUCT_NAME = "Obscuras Campaign Manager Pro"
-    PRODUCT_PRICE_EUR = 129.00
-    LICENSE_DURATION_DAYS = 365
+    Kommuniziert mit https://mailer-campaigner.de/api für:
+    - Checkout-Session erstellen (Zahlung einleiten)
+    - Lizenzschlüssel verifizieren (nach Kauf per E-Mail erhalten)
+    - Lizenz aktivieren
+    """
     
     # Singleton
     _instance: Optional["StripeService"] = None
@@ -32,85 +42,131 @@ class StripeService:
         return cls._instance
     
     def __init__(self) -> None:
-        self._api_key: str | None = None
-        self._publishable_key: str | None = None
-        self._price_id: str | None = None
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+            
+        self._api_url: str = ""
+        self._endpoints: dict[str, str] = {}
+        self._product: dict[str, Any] = {}
+        self._checkout_urls: dict[str, str] = {}
+        self._timeout: int = 30
         self._is_configured = False
+        
         self._load_config()
+        self._initialized = True
     
     def _load_config(self) -> None:
-        """Load Stripe configuration from environment or config file."""
-        # Try environment variables first
-        self._api_key = os.environ.get("STRIPE_SECRET_KEY")
-        self._publishable_key = os.environ.get("STRIPE_PUBLISHABLE_KEY")
-        self._price_id = os.environ.get("STRIPE_PRICE_ID")
+        """Load license server configuration from config file."""
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "config/license_server.yaml"
+        )
         
-        # Try config file if env vars not set
-        if not self._api_key:
-            try:
-                import yaml
-                config_path = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)),
-                    "config/stripe.yaml"
-                )
-                if os.path.exists(config_path):
-                    with open(config_path, 'r') as f:
-                        config = yaml.safe_load(f)
-                        if config:
-                            self._api_key = config.get("secret_key")
-                            self._publishable_key = config.get("publishable_key")
-                            self._price_id = config.get("price_id")
-            except Exception as e:
-                logger.debug(f"Keine Stripe-Konfiguration gefunden: {e}")
-        
-        if self._api_key:
-            stripe.api_key = self._api_key
-            self._is_configured = True
-            logger.info("Stripe konfiguriert")
-        else:
-            logger.warning("Stripe nicht konfiguriert - Zahlungen deaktiviert")
+        try:
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                    
+                if config:
+                    self._api_url = config.get("api_url", "").rstrip("/")
+                    self._endpoints = config.get("endpoints", {})
+                    self._product = config.get("product", {})
+                    self._checkout_urls = config.get("checkout_urls", {})
+                    self._timeout = config.get("timeout", 30)
+                    
+                    if self._api_url:
+                        self._is_configured = True
+                        logger.info(f"License Server konfiguriert: {self._api_url}")
+                    else:
+                        logger.warning("License Server URL nicht konfiguriert")
+            else:
+                logger.warning(f"License Server Konfiguration nicht gefunden: {config_path}")
+                
+        except Exception as e:
+            logger.error(f"Fehler beim Laden der License Server Konfiguration: {e}")
     
     @property
     def is_configured(self) -> bool:
-        """Check if Stripe is properly configured."""
-        return self._is_configured and bool(self._api_key)
+        """Check if the license server is configured."""
+        return self._is_configured and bool(self._api_url)
     
-    def configure(
+    @property
+    def product_name(self) -> str:
+        """Get product name from config."""
+        return str(self._product.get("name", "Obscuras Campaign Manager Pro"))
+    
+    @property
+    def product_price(self) -> float:
+        """Get product price from config."""
+        price = self._product.get("price_eur", 129.00)
+        # Handle comma as decimal separator (German format)
+        if isinstance(price, str):
+            price = float(price.replace(",", "."))
+        return float(price)
+    
+    @property
+    def license_duration_days(self) -> int:
+        """Get license duration from config."""
+        return int(self._product.get("license_duration_days", 365))
+    
+    # ═══════════════════════════════════════════════════════════════
+    # API COMMUNICATION
+    # ═══════════════════════════════════════════════════════════════
+    
+    def _api_request(
         self, 
-        secret_key: str, 
-        publishable_key: str, 
-        price_id: str | None = None
-    ) -> None:
-        """Configure Stripe with API keys."""
-        self._api_key = secret_key
-        self._publishable_key = publishable_key
-        self._price_id = price_id
+        endpoint: str, 
+        data: dict[str, Any]
+    ) -> tuple[bool, dict[str, Any]]:
+        """
+        Make a POST request to the license server API.
         
-        stripe.api_key = secret_key
-        self._is_configured = True
+        Returns:
+            (success, response_data)
+        """
+        if not self.is_configured:
+            return False, {"error": "License Server nicht konfiguriert"}
         
-        # Save to config file
-        self._save_config()
-        logger.info("Stripe erfolgreich konfiguriert")
-    
-    def _save_config(self) -> None:
-        """Save Stripe configuration to file."""
-        import yaml
+        url = f"{self._api_url}{endpoint}"
         
-        config_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "config/stripe.yaml"
-        )
-        
-        config = {
-            "secret_key": self._api_key,
-            "publishable_key": self._publishable_key,
-            "price_id": self._price_id,
-        }
-        
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
-        with open(config_path, 'w') as f:
-            yaml.dump(config, f)
+        try:
+            # Prepare request
+            json_data = json.dumps(data).encode('utf-8')
+            request = urllib.request.Request(
+                url,
+                data=json_data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'ObscurasCampaignManager/1.0',
+                },
+                method='POST'
+            )
+            
+            # Make request
+            with urllib.request.urlopen(request, timeout=self._timeout) as response:
+                response_data = json.loads(response.read().decode('utf-8'))
+                return True, response_data
+                
+        except urllib.error.HTTPError as e:
+            try:
+                error_body = json.loads(e.read().decode('utf-8'))
+                error_msg = error_body.get('error', str(e))
+            except Exception:
+                error_msg = str(e)
+            logger.error(f"API HTTP-Fehler ({url}): {e.code} - {error_msg}")
+            return False, {"error": error_msg, "code": e.code}
+            
+        except urllib.error.URLError as e:
+            logger.error(f"API Verbindungsfehler ({url}): {e}")
+            return False, {"error": f"Verbindung zum Server fehlgeschlagen: {e.reason}"}
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"API JSON-Fehler: {e}")
+            return False, {"error": "Ungültige Server-Antwort"}
+            
+        except Exception as e:
+            logger.error(f"API Fehler: {e}")
+            return False, {"error": str(e)}
     
     # ═══════════════════════════════════════════════════════════════
     # CHECKOUT
@@ -118,131 +174,215 @@ class StripeService:
     
     def create_checkout_session(
         self,
-        customer_email: str | None = None,
-        success_url: str = "https://obscuras-media-agency.de/payment/success",
-        cancel_url: str = "https://obscuras-media-agency.de/payment/cancel"
+        customer_email: str | None = None
     ) -> tuple[bool, str]:
         """
-        Create a Stripe Checkout session.
-        Returns (success, checkout_url_or_error).
+        Create a checkout session via the license server.
+        
+        The server handles all Stripe communication - we just need the email.
+        After successful payment, the license key is sent via email.
+        
+        Returns:
+            (success, checkout_url_or_error)
         """
         if not self.is_configured:
-            return False, "Stripe ist nicht konfiguriert. Bitte API-Keys hinterlegen."
+            return False, "License Server nicht konfiguriert. Bitte config/license_server.yaml prüfen."
         
-        try:
-            # Create checkout session
-            checkout_params: dict[str, Any] = {
-                "payment_method_types": ["card"],
-                "mode": "payment",
-                "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
-                "cancel_url": cancel_url,
-                "line_items": [{
-                    "price_data": {
-                        "currency": "eur",
-                        "product_data": {
-                            "name": self.PRODUCT_NAME,
-                            "description": f"Jahreslizenz - {self.LICENSE_DURATION_DAYS} Tage gültig",
-                        },
-                        "unit_amount": int(self.PRODUCT_PRICE_EUR * 100),  # In Cents
-                    },
-                    "quantity": 1,
-                }],
-                "metadata": {
-                    "product": "campaign_manager_pro",
-                    "license_days": str(self.LICENSE_DURATION_DAYS),
-                },
-            }
-            
-            if customer_email:
-                checkout_params["customer_email"] = customer_email
-            
-            # Use price_id if configured (keeps payment mode for one-time prices)
-            if self._price_id:
-                checkout_params["line_items"] = [{
-                    "price": self._price_id,
-                    "quantity": 1,
-                }]
-            
-            session = stripe.checkout.Session.create(**checkout_params)  # type: ignore[arg-type]
-            
-            logger.info(f"Checkout-Session erstellt: {session.id}")
-            return True, str(session.url)
-            
-        except stripe.StripeError as e:
-            logger.error(f"Stripe-Fehler: {e}")
-            return False, f"Zahlungsfehler: {e.user_message if hasattr(e, 'user_message') else str(e)}"
-        except Exception as e:
-            logger.error(f"Fehler beim Erstellen der Checkout-Session: {e}")
-            return False, f"Fehler: {e}"
+        endpoint = self._endpoints.get("checkout", "/checkout.php")
+        
+        data: dict[str, Any] = {}
+        if customer_email:
+            data["email"] = customer_email
+        
+        success, response = self._api_request(endpoint, data)
+        
+        if success and response.get("success"):
+            checkout_url = response.get("checkout_url", "")
+            if checkout_url:
+                logger.info(f"Checkout-Session erstellt für {customer_email or 'unbekannt'}")
+                return True, checkout_url
+            else:
+                return False, "Keine Checkout-URL erhalten"
+        else:
+            error = response.get("error", "Unbekannter Fehler")
+            logger.error(f"Checkout-Fehler: {error}")
+            return False, f"Zahlungsfehler: {error}"
     
     def open_checkout(self, customer_email: str | None = None) -> tuple[bool, str]:
         """
         Create checkout session and open in browser.
-        Returns (success, message).
+        
+        Returns:
+            (success, message)
         """
         success, result = self.create_checkout_session(customer_email=customer_email)
         
         if success:
             webbrowser.open(result)
-            return True, "Zahlungsseite wurde im Browser geöffnet."
+            return True, (
+                "Zahlungsseite wurde im Browser geöffnet.\n\n"
+                "Nach erfolgreicher Zahlung erhältst du deinen Lizenzschlüssel per E-Mail."
+            )
         else:
             return False, result
     
     # ═══════════════════════════════════════════════════════════════
-    # PAYMENT VERIFICATION
+    # LICENSE VERIFICATION & ACTIVATION
+    # ═══════════════════════════════════════════════════════════════
+    
+    def _get_machine_id(self) -> str:
+        """Generate a unique machine identifier for license binding."""
+        components = [
+            platform.node(),           # Hostname
+            platform.machine(),        # CPU architecture
+            platform.system(),         # OS name
+        ]
+        
+        # Try to get more unique identifiers
+        try:
+            import uuid
+            # Get MAC address
+            mac = uuid.getnode()
+            components.append(str(mac))
+        except Exception:
+            pass
+        
+        combined = "|".join(components)
+        return hashlib.sha256(combined.encode()).hexdigest()[:32]
+    
+    def verify_license_key(self, license_key: str) -> tuple[bool, dict[str, Any]]:
+        """
+        Verify a license key with the server.
+        
+        Returns:
+            (valid, license_data_or_error)
+        """
+        if not self.is_configured:
+            return False, {"error": "License Server nicht konfiguriert"}
+        
+        # Format validation
+        key_clean = license_key.replace("-", "").replace(" ", "").upper()
+        if len(key_clean) != 16 or not key_clean.isalnum():
+            return False, {"error": "Ungültiges Lizenzschlüssel-Format. Erwartet: XXXX-XXXX-XXXX-XXXX"}
+        
+        # Format key properly
+        formatted_key = "-".join([key_clean[i:i+4] for i in range(0, 16, 4)])
+        
+        endpoint = self._endpoints.get("verify", "/verify.php")
+        data = {"license_key": formatted_key}
+        
+        success, response = self._api_request(endpoint, data)
+        
+        if success and response.get("valid"):
+            return True, response
+        else:
+            error = response.get("error", "Lizenzschlüssel ungültig")
+            return False, {"error": error}
+    
+    def activate_with_key(self, license_key: str) -> tuple[bool, str]:
+        """
+        Verify and activate a license with a key.
+        
+        Steps:
+        1. Verify key with server
+        2. If valid, activate locally and optionally register machine
+        
+        Returns:
+            (success, message)
+        """
+        # First verify with server
+        valid, result = self.verify_license_key(license_key)
+        
+        if not valid:
+            error = result.get("error", "Lizenzschlüssel ungültig")
+            return False, error
+        
+        # Key is valid - activate locally
+        license_service = get_license_service()
+        
+        # Extract expiry date from server response
+        expires_str = result.get("expires", "")
+        
+        # Format key properly
+        key_clean = license_key.replace("-", "").replace(" ", "").upper()
+        formatted_key = "-".join([key_clean[i:i+4] for i in range(0, 16, 4)])
+        
+        # Activate in local database
+        success, message = license_service.activate_license(
+            license_key=formatted_key
+        )
+        
+        if success:
+            # Optionally: Register activation with server
+            self._register_activation(formatted_key)
+            
+            expires_display = expires_str
+            if expires_str:
+                try:
+                    # Parse and format date
+                    expires_dt = datetime.fromisoformat(expires_str.replace(" ", "T").split("T")[0])
+                    expires_display = expires_dt.strftime("%d.%m.%Y")
+                except Exception:
+                    pass
+            
+            return True, (
+                f"✅ Lizenz erfolgreich aktiviert!\n\n"
+                f"Produkt: {self.product_name}\n"
+                f"Gültig bis: {expires_display}"
+            )
+        else:
+            return False, message
+    
+    def _register_activation(self, license_key: str) -> None:
+        """
+        Register the activation with the server (optional).
+        This helps track which machines have activated the license.
+        """
+        endpoint = self._endpoints.get("activate", "/activate.php")
+        machine_id = self._get_machine_id()
+        
+        data = {
+            "license_key": license_key,
+            "machine_id": machine_id,
+        }
+        
+        try:
+            success, response = self._api_request(endpoint, data)
+            if success:
+                logger.info(f"Aktivierung registriert für Machine-ID: {machine_id[:8]}...")
+            else:
+                # Non-critical - don't fail if registration doesn't work
+                logger.debug(f"Aktivierungs-Registrierung optional: {response.get('error', 'unbekannt')}")
+        except Exception as e:
+            logger.debug(f"Aktivierungs-Registrierung fehlgeschlagen (ignoriert): {e}")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # LEGACY COMPATIBILITY
     # ═══════════════════════════════════════════════════════════════
     
     def verify_payment(self, session_id: str) -> tuple[bool, str]:
         """
-        Verify a payment session and activate license.
-        Returns (success, message).
-        """
-        if not self.is_configured:
-            return False, "Stripe ist nicht konfiguriert"
+        Legacy method - no longer used.
         
-        try:
-            session = stripe.checkout.Session.retrieve(session_id)
-            
-            if session.payment_status == "paid":
-                # Activate license
-                license_service = get_license_service()
-                license_key = LicenseService.generate_license_key()
-                
-                success, message = license_service.activate_license(
-                    license_key=license_key,
-                    stripe_customer_id=str(session.customer) if session.customer else None,
-                    stripe_subscription_id=str(session.subscription) if session.subscription else None
-                )
-                
-                if success:
-                    return True, f"Zahlung erfolgreich! Ihre Lizenz wurde aktiviert.\n\nLizenzschlüssel: {license_key}"
-                else:
-                    return False, f"Zahlung erfolgreich, aber Lizenzaktivierung fehlgeschlagen: {message}"
-            else:
-                return False, f"Zahlung nicht abgeschlossen. Status: {session.payment_status}"
-                
-        except stripe.StripeError as e:
-            logger.error(f"Stripe-Fehler bei Verifizierung: {e}")
-            return False, f"Fehler bei der Verifizierung: {e}"
+        Payment verification is now handled server-side via Stripe webhooks.
+        The license key is sent to the customer via email.
+        """
+        return False, (
+            "Diese Funktion wird nicht mehr verwendet.\n\n"
+            "Nach erfolgreicher Zahlung erhältst du deinen Lizenzschlüssel per E-Mail.\n"
+            "Gib den Schlüssel unter 'Einstellungen → Lizenz → Mit Schlüssel aktivieren' ein."
+        )
     
-    # ═══════════════════════════════════════════════════════════════
-    # MANUAL LICENSE ACTIVATION
-    # ═══════════════════════════════════════════════════════════════
-    
-    def activate_with_key(self, license_key: str) -> tuple[bool, str]:
+    def configure(self, *args: Any, **kwargs: Any) -> None:
         """
-        Manually activate a license with a key.
-        Returns (success, message).
+        Legacy method - configuration is now read-only from license_server.yaml.
+        
+        Stripe keys are stored securely on the server, not in the app.
         """
-        # For now, accept any 16-char key format (XXXX-XXXX-XXXX-XXXX)
-        # In production, validate against a server
-        key_clean = license_key.replace("-", "").replace(" ", "").upper()
-        
-        if len(key_clean) != 16 or not key_clean.isalnum():
-            return False, "Ungültiges Lizenzschlüssel-Format. Erwartet: XXXX-XXXX-XXXX-XXXX"
-        
-        license_service = get_license_service()
-        return license_service.activate_license(license_key=license_key)
+        logger.warning(
+            "configure() wird nicht mehr verwendet. "
+            "Die Konfiguration erfolgt über config/license_server.yaml"
+        )
 
 
 # Global instance
