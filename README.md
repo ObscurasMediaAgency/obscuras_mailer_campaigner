@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Mailer Campaigner" width="120" height="120">
+  <img src="assets/logo.png" alt="Mailer Campaigner" width="300" height="300">
 </p>
 
 <h1 align="center">Mailer Campaigner</h1>
