@@ -1,345 +1,249 @@
-# 📧 Obscuras Mail Campaign Manager
+<p align="center">
+  <img src="assets/logo.png" alt="Mailer Campaigner" width="120" height="120">
+</p>
 
-Ein flexibles E-Mail-Kampagnen-Tool für personalisierte Akquise-Mails mit wiederverwendbaren Templates.
+<h1 align="center">Mailer Campaigner</h1>
+
+<p align="center">
+  <strong>Professionelles E-Mail-Marketing leicht gemacht</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-1.3.1-6366f1?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/PyQt6-GUI-22c55e?style=for-the-badge" alt="PyQt6">
+  <img src="https://img.shields.io/badge/Lizenz-Proprietär-f59e0b?style=for-the-badge" alt="Lizenz">
+</p>
+
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-installation">Installation</a> •
+  <a href="#-schnellstart">Schnellstart</a> •
+  <a href="#-dokumentation">Dokumentation</a> •
+  <a href="#-lizenz">Lizenz</a>
+</p>
 
 ---
 
-## 🚀 Schnellstart
+## Was ist Mailer Campaigner?
+
+**Mailer Campaigner** ist eine professionelle Desktop-Anwendung für personalisiertes E-Mail-Marketing. Mit der intuitiven grafischen Oberfläche verwalten Sie Kampagnen, Kontakte und Templates – ohne technisches Vorwissen.
+
+Ideal für:
+- 🏢 **Agenturen** – Kundenakquise mit personalisierten Anschreiben
+- 👔 **Freelancer** – Professionelle Kaltakquise per E-Mail
+- 🏪 **KMUs** – Newsletter und Angebote an Bestandskunden
+- 📊 **Marketing-Teams** – Kampagnen-Management mit Tracking
+
+---
+
+## ✨ Features
+
+### Kampagnen-Management
+- 📧 **Unbegrenzte Kampagnen** – Erstellen Sie beliebig viele E-Mail-Kampagnen
+- 👥 **Kontaktverwaltung** – CSV-Import, Status-Tracking, Bounce-Handling
+- 🎨 **Template-Editor** – Wiederverwendbare Designs mit Live-Vorschau
+- 📊 **Dashboard** – Echtzeit-Statistiken und Aktivitäts-Feed
+
+### Personalisierung
+- 🔄 **Dynamische Platzhalter** – `{{FIRMA}}`, `{{ANREDE}}`, `{{DOMAIN}}` und mehr
+- 🎭 **Jinja2-Templates** – Volle Template-Engine mit Logik und Schleifen
+- 📝 **HTML + Plaintext** – Multipart-E-Mails für maximale Kompatibilität
+
+### Sicherheit & Compliance
+- 🔐 **Verschlüsselte SMTP-Verbindung** – SSL/TLS auf Port 465 oder 587
+- 📋 **Blacklist-Management** – Automatische Bounce-Erkennung
+- ⏰ **Zeitfenster-Versand** – Nur Mo–Fr 9–17 Uhr (konfigurierbar)
+- 🛡️ **Rate-Limiting** – Schutz vor Spam-Klassifizierung
+
+### Technisch
+- 💾 **SQLite-Datenbank** – Lokale Datenhaltung, keine Cloud erforderlich
+- 🎯 **Stripe-Integration** – Lizenz-Management für kommerzielle Nutzung
+- 🖥️ **Cross-Platform** – Windows, macOS, Linux
+
+---
+
+## 🚀 Installation
+
+### Voraussetzungen
+
+- Python 3.10 oder höher
+- pip (Python Package Manager)
+
+### Automatische Installation
 
 ```bash
-# 1. Umgebungsvariablen setzen
-cp .env.example .env
-nano .env  # SMTP-Zugangsdaten eintragen
-source .env
+# Repository klonen
+git clone https://github.com/obscuras-media-agency/mailer-campaigner.git
+cd mailer-campaigner
 
-# 2. Kampagnen anzeigen
+# Installer ausführen
+python install.py
+```
+
+Der Installer:
+1. Erstellt eine virtuelle Umgebung
+2. Installiert alle Abhängigkeiten
+3. Initialisiert die Datenbank
+4. Erstellt einen Desktop-Shortcut (optional)
+
+### Manuelle Installation
+
+```bash
+# Virtuelle Umgebung erstellen
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
+
+# Abhängigkeiten installieren
+pip install -r requirements.txt
+
+# Anwendung starten
+python main.py
+```
+
+---
+
+## 🎯 Schnellstart
+
+### 1. Anwendung starten
+
+```bash
+python main.py
+```
+
+Die GUI öffnet sich mit dem Dashboard.
+
+### 2. SMTP konfigurieren
+
+Navigieren Sie zu **Einstellungen → SMTP** und tragen Sie Ihre Serverdaten ein:
+
+| Feld | Beispiel |
+|------|----------|
+| Host | `smtp.gmail.com` |
+| Port | `465` |
+| Benutzer | `ihre@email.de` |
+| Passwort | `app-spezifisches-passwort` |
+
+### 3. Erste Kampagne erstellen
+
+1. Klicken Sie auf **Kampagnen → Neue Kampagne**
+2. Geben Sie einen Namen und Betreff ein
+3. Importieren Sie Kontakte per CSV
+4. Wählen Sie ein Template
+5. Klicken Sie auf **Vorschau** zum Testen
+6. **Kampagne starten** zum Versand
+
+---
+
+## 📖 Dokumentation
+
+| Dokument | Beschreibung |
+|----------|--------------|
+| [Installation](docs/INSTALLATION.md) | Detaillierte Installationsanleitung |
+| [GUI Setup](docs/GUI_SETUP.md) | PyQt6-Oberfläche konfigurieren |
+| [PHP API](docs/PHP_API_SETUP.md) | Lizenz-Server einrichten |
+
+### CLI-Modus
+
+Für Automatisierung steht auch ein Kommandozeilen-Interface bereit:
+
+```bash
+# Kampagnen auflisten
 python send_campaign.py --list
 
-# 3. Vorschau erstellen
-python send_campaign.py kanzleien_mobile --preview
+# Kampagne im Dry-Run testen
+python send_campaign.py meine_kampagne --dry-run
 
-# 4. Test-Mail an sich selbst
-python send_campaign.py kanzleien_mobile --test deine@email.de
-
-# 5. Testlauf (ohne Versand)
-python send_campaign.py kanzleien_mobile --dry-run
-
-# 6. Kampagne starten (mit Zeitfenster Mo-Fr 9-17 Uhr)
-python send_campaign.py kanzleien_mobile --schedule
+# Mit Zeitfenster versenden
+python send_campaign.py meine_kampagne --schedule
 ```
 
 ---
 
 ## 📁 Projektstruktur
 
-```bash
-mail_compaign/
-│
-├── 📂 campaigns/                    # Alle Kampagnen
-│   ├── kanzleien_mobile/
-│   │   ├── campaign.yaml            # Anschreiben & Konfiguration
-│   │   ├── contacts.csv             # Kontaktliste
-│   │   └── preview.html             # Generierte Vorschau
-│   │
-│   ├── aerzte_website/
-│   │   ├── campaign.yaml
-│   │   └── contacts.csv
-│   │
-│   └── immobilien_hausverwaltung/
-│       ├── campaign.yaml
-│       └── contacts.csv
-│
-├── 📂 templates/
-│   ├── base.html                    # Basis-Template (für alle Kampagnen)
-│   ├── template.html                # Legacy-Template
-│   └── template.txt                 # Legacy-Plaintext
-│
-├── 📂 config/
-│   ├── sender.yaml                  # Absender-Daten
-│   └── settings.py                  # SMTP-Konfiguration
-│
-├── 📂 logs/                         # Versand-Protokolle
-│   ├── <kampagne>.log               # Versand-Log pro Kampagne
-│   └── bounces.log                  # Permanente Zustellfehler
-│
-├── 📂 data/                         # Legacy-Kontakte
-│   └── contacts.csv
-│
-├── send_campaign.py                 # 🎯 Kampagnen-Tool (NEU)
-├── send_smtp.py                     # Legacy-Versand
-├── .env.example                     # Vorlage für Umgebungsvariablen
-├── .gitignore                       # Git-Ausnahmen
-└── README.md                        # Diese Datei
 ```
-
----
-
-## 🎯 Verwendung
-
-### Alle Kampagnen anzeigen
-
-```bash
-python send_campaign.py --list
-```
-
-### Vorschau erstellen
-
-Erstellt eine `preview.html` im Kampagnen-Ordner:
-
-```bash
-python send_campaign.py <kampagne> --preview
-```
-
-### Testlauf (Dry-Run)
-
-Rendert alle E-Mails, ohne sie zu versenden:
-
-```bash
-python send_campaign.py <kampagne> --dry-run
-```
-
-### Kampagne starten
-
-```bash
-python send_campaign.py <kampagne>
-```
-
-### Anzahl begrenzen
-
-```bash
-python send_campaign.py <kampagne> --limit 10
-```
-
-### Test-Mail senden
-
-Sendet eine einzelne Test-Mail an dich selbst (mit `[TEST]`-Prefix im Betreff):
-
-```bash
-python send_campaign.py <kampagne> --test sascha@example.com
-```
-
-### Zeitfenster aktivieren (Schedule)
-
-Sendet nur Mo–Fr zwischen 9–17 Uhr – unauffälliger und professioneller:
-
-```bash
-python send_campaign.py <kampagne> --schedule
-```
-
-Mit angepasstem Zeitfenster:
-
-```bash
-# Nur Mo-Do, 10-16 Uhr
-python send_campaign.py <kampagne> --schedule --schedule-days "1-4" --schedule-hours "10-16"
-```
-
----
-
-## 🚫 Bounce-Handling
-
-### Bounces anzeigen
-
-Zeigt alle permanent fehlgeschlagenen Zustellungen (550–554 Fehler):
-
-```bash
-python send_campaign.py --bounces
-```
-
-### CSV-Dateien bereinigen
-
-Entfernt gebounced E-Mails aus allen Kampagnen-CSVs:
-
-```bash
-# Erst prüfen (Dry-Run)
-python send_campaign.py --clean-bounces --dry-run
-
-# Tatsächlich bereinigen (erstellt Backups)
-python send_campaign.py --clean-bounces
-```
-
-**Features:**
-
-- Bounces werden automatisch in `logs/bounces.log` protokolliert
-- Gebounced E-Mails werden beim nächsten Versand automatisch übersprungen
-- Mit `--include-bounced` können sie trotzdem erneut versucht werden
-
----
-
-## ✨ Neue Kampagne erstellen
-
-### 1. Ordner anlegen
-
-```bash
-mkdir campaigns/meine_kampagne
-```
-
-### 2. campaign.yaml erstellen
-
-```yaml
-name: "Meine Kampagne"
-subject: "Betreffzeile der E-Mail"
-contacts: "contacts.csv"
-
-content:
-  greeting: "Sehr geehrte Damen und Herren der <strong style=\"color:#a78bfa;\">{{FIRMA}}</strong>,"
-  
-  intro: |
-    Einleitungstext mit Link zur 
-    <a href="{{DOMAIN}}" style="color:#818cf8;">{{DOMAIN}}</a>.
-  
-  highlight: "{{PROBLEM}}"
-  
-  body:
-    - "Erster Absatz des Haupttexts."
-    - "Zweiter Absatz mit <strong style=\"color:#d4d4d8;\">Hervorhebung</strong>."
-    - "Dritter Absatz als Abschluss."
-  
-  cta:
-    text: "Jetzt kontaktieren →"
-    url: "https://obscuras-media-agency.de/kontakt"
-
-plaintext: |
-  Sehr geehrte Damen und Herren der {{FIRMA}},
-  
-  Hier der Plaintext-Inhalt...
-  
-  Mit freundlichen Grüßen
-  Sascha Gebel
-```
-
-### 3. contacts.csv erstellen
-
-```csv
-FIRMA,DOMAIN,PROBLEM,EMAIL
-Musterfirma GmbH,https://musterfirma.de,"Das spezifische Problem.",kontakt@musterfirma.de
-```
-
-### 4. Testen
-
-```bash
-python send_campaign.py meine_kampagne --preview
-python send_campaign.py meine_kampagne --dry-run
+mailer_campaigner/
+├── main.py                 # Anwendungs-Einstiegspunkt
+├── gui/                    # PyQt6-Oberfläche
+│   ├── main_window.py      # Hauptfenster
+│   ├── pages/              # Seiten (Dashboard, Kontakte, etc.)
+│   └── widgets/            # Wiederverwendbare Komponenten
+├── models/                 # SQLAlchemy-Datenmodelle
+├── utils/                  # Hilfsfunktionen
+├── templates/              # E-Mail-Templates (Jinja2)
+├── config/                 # Konfigurationsdateien
+└── docs/                   # Dokumentation
 ```
 
 ---
 
 ## 🔧 Konfiguration
 
-### Umgebungsvariablen (.env)
-
-```bash
-export SMTP_HOST="smtp.deinserver.de"
-export SMTP_PORT="465"
-export SMTP_USER="mail@obscuras-media-agency.de"
-export SMTP_PASS="dein-sicheres-passwort"
-```
-
-### Absender-Daten (config/sender.yaml)
+### Absender (config/sender.yaml)
 
 ```yaml
 sender:
-  name: "Sascha Gebel"
-  title: "Gründer & Entwickler"
-  email: "mail@obscuras-media-agency.de"
+  name: "Max Mustermann"
+  title: "Geschäftsführer"
+  email: "max@firma.de"
 
 company:
-  name: "Obscuras Media Agency"
-  domain: "obscuras-media-agency.de"
-  url: "https://obscuras-media-agency.de"
+  name: "Musterfirma GmbH"
+  url: "https://musterfirma.de"
 
 rate_limit:
-  delay_seconds: 80  # ~45 Mails/Stunde
+  delay_seconds: 60  # 60 Mails/Stunde
 ```
 
----
-
-## 📊 Verfügbare Platzhalter
-
-### Globale Platzhalter (automatisch)
+### Platzhalter
 
 | Platzhalter | Beschreibung |
-| ----------- | ------------ |
+|-------------|--------------|
+| `{{FIRMA}}` | Firmenname aus CSV |
+| `{{ANREDE}}` | Persönliche Anrede |
+| `{{DOMAIN}}` | Website-Domain |
+| `{{SENDER_NAME}}` | Ihr Name |
 | `{{YEAR}}` | Aktuelles Jahr |
-| `{{SENDER_NAME}}` | Name des Absenders |
-| `{{SENDER_TITLE}}` | Titel des Absenders |
-| `{{COMPANY_NAME}}` | Firmenname |
-| `{{COMPANY_URL}}` | Website-URL |
-
-### Kampagnen-spezifische Platzhalter
-
-Definiert durch die Spalten in der `contacts.csv`:
-
-| Kampagne | Platzhalter |
-| -------- | ----------- |
-| Kanzleien | `{{KANZLEINAME}}`, `{{DOMAIN}}`, `{{PROBLEM}}` |
-| Ärzte | `{{PRAXISNAME}}`, `{{DOMAIN}}`, `{{PROBLEM}}` |
-| Immobilien | `{{FIRMENNAME}}`, `{{DOMAIN}}`, `{{PROBLEM}}` |
-
----
-
-## 📝 Logging
-
-Jede Kampagne hat eine eigene Log-Datei unter `logs/<kampagne>.log`:
-
-```text
-2026-01-30 20:15:32 | info@kanzlei.de | OK
-2026-01-30 20:16:52 | kontakt@firma.de | OK
-2026-01-30 20:18:12 | mail@example.de | BOUNCE (550): Mailbox not found
-```
-
-Bounces werden zusätzlich in `logs/bounces.log` protokolliert:
-
-```text
-2026-01-30 20:18:12 | kanzleien_mobile | mail@example.de | 550 | Mailbox not found
-```
-
-- Bereits versendete E-Mails werden **automatisch übersprungen**
-- Gebounced E-Mails werden beim nächsten Lauf **nicht erneut versucht**
-
----
-
-## ⚡ Features
-
-- ✅ **Kampagnen-basiert** – Verschiedene Anschreiben für verschiedene Zielgruppen
-- ✅ **YAML-Konfiguration** – Einfach anpassbar ohne Code-Änderungen
-- ✅ **HTML + Plaintext** – Multipart-E-Mails für maximale Kompatibilität
-- ✅ **Personalisierung** – Beliebige Platzhalter aus CSV
-- ✅ **Rate-Limiting** – Schutz vor Spam-Klassifizierung
-- ✅ **Auto-Reconnect** – Verbindungsabbrüche werden automatisch behandelt
-- ✅ **Duplikat-Schutz** – Keine doppelten E-Mails
-- ✅ **Vorschau-Modus** – HTML-Preview vor dem Versand
-- ✅ **Dry-Run** – Testlauf ohne echten Versand
-- ✅ **Sichere Credentials** – Passwörter nur via Umgebungsvariablen
-- ✅ **Test-Mail** – Einzelne Test-Mail an eigene Adresse senden
-- ✅ **Zeitfenster (Schedule)** – Nur Mo–Fr 9–17 Uhr senden, unauffälliger
-- ✅ **Bounce-Handling** – 550er-Fehler separat loggen & CSV automatisch bereinigen
 
 ---
 
 ## 🛡️ Sicherheit
 
-- Passwörter werden **niemals** im Code gespeichert
-- `.env` ist in `.gitignore` eingetragen
-- SMTP-Verbindung erfolgt via **SSL (Port 465)**
-
----
-
-## 📦 Abhängigkeiten
-
-```bash
-pip install pyyaml
-```
-
-Python 3.8+ erforderlich.
+- ✅ Passwörter werden **verschlüsselt** in der Datenbank gespeichert
+- ✅ SMTP-Verbindungen erfolgen via **SSL/TLS**
+- ✅ Keine Datenübertragung an externe Server (außer Lizenzprüfung)
+- ✅ Lokale SQLite-Datenbank – Ihre Daten bleiben bei Ihnen
 
 ---
 
 ## 📄 Lizenz
 
-Proprietär – Obscuras Media Agency © 2026
+**Mailer Campaigner** ist proprietäre Software der **Obscuras Media Agency**.
+
+### Lizenzmodelle
+
+| Plan | Preis | Features |
+|------|-------|----------|
+| **Free** | Kostenlos | 100 E-Mails/Monat, 1 Kampagne |
+| **Pro** | 19€/Monat | Unbegrenzt E-Mails, alle Features |
+| **Enterprise** | Auf Anfrage | Priority Support, Custom Features |
+
+[Lizenz erwerben →](https://obscuras-media-agency.de/mailer-campaigner)
 
 ---
 
-**Obscuras Media Agency**  
-Digitale Softwarelösungen  
-[obscuras-media-agency.de](https://obscuras-media-agency.de)
+## 🤝 Support
+
+- 📧 E-Mail: [support@obscuras-media-agency.de](mailto:support@obscuras-media-agency.de)
+- 🌐 Website: [obscuras-media-agency.de](https://obscuras-media-agency.de)
+- 🐛 Issues: [GitHub Issues](https://github.com/obscuras-media-agency/mailer-campaigner/issues)
+
+---
+
+<p align="center">
+  <strong>Obscuras Media Agency</strong><br>
+  Digitale Softwarelösungen<br>
+  © 2026 Alle Rechte vorbehalten
+</p>
