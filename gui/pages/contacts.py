@@ -290,14 +290,19 @@ class ContactsPage(QWidget):
         stats_layout.setContentsMargins(0, 0, 0, 0)
         stats_layout.setSpacing(24)
         
-        for label, value, color in [
-            ("Gesamt", "302", "#fafafa"),
-            ("Ausstehend", "156", "#a1a1aa"),
-            ("Gesendet", "138", "#22c55e"),
-            ("Bounced", "5", "#ef4444"),
-            ("Ungültig", "3", "#f59e0b"),
-        ]:
-            stat_item = QLabel(f"{label}: <span style='color:{color};font-weight:600;'>{value}</span>")
+        # Store stat labels for dynamic updates
+        self.stat_labels: dict[str, QLabel] = {}
+        stat_configs = [
+            ("total", "Gesamt", "0", "#fafafa"),
+            ("pending", "Ausstehend", "0", "#a1a1aa"),
+            ("sent", "Gesendet", "0", "#22c55e"),
+            ("bounced", "Bounced", "0", "#ef4444"),
+            ("invalid", "Ungültig", "0", "#f59e0b"),
+        ]
+        
+        for key, label_text, value, color in stat_configs:
+            stat_item = QLabel(f"{label_text}: <span style='color:{color};font-weight:600;'>{value}</span>")
+            self.stat_labels[key] = stat_item
             stats_layout.addWidget(stat_item)
         
         stats_layout.addStretch()
@@ -456,9 +461,28 @@ class ContactsPage(QWidget):
             session.close()
     
     def _update_stats(self, contacts: Sequence[Contact]) -> None:
-        """Update statistics bar."""
-        # Stats werden in einer zukünftigen Version aktualisiert
-        pass
+        """Update statistics bar based on loaded contacts."""
+        from models.contact import ContactStatus
+        
+        total = len(contacts)
+        pending = sum(1 for c in contacts if c.status == ContactStatus.PENDING)
+        sent = sum(1 for c in contacts if c.status == ContactStatus.SENT)
+        bounced = sum(1 for c in contacts if c.status == ContactStatus.BOUNCED)
+        invalid = sum(1 for c in contacts if c.status in (ContactStatus.ERROR, ContactStatus.BLACKLISTED))
+        
+        stats_data = {
+            "total": ("Gesamt", str(total), "#fafafa"),
+            "pending": ("Ausstehend", str(pending), "#a1a1aa"),
+            "sent": ("Gesendet", str(sent), "#22c55e"),
+            "bounced": ("Bounced", str(bounced), "#ef4444"),
+            "invalid": ("Ungültig", str(invalid), "#f59e0b"),
+        }
+        
+        for key, (label_text, value, color) in stats_data.items():
+            if key in self.stat_labels:
+                self.stat_labels[key].setText(
+                    f"{label_text}: <span style='color:{color};font-weight:600;'>{value}</span>"
+                )
     
     def import_contacts(self):
         """Open import dialog."""

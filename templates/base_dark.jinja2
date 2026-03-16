@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hinweis zur mobilen Darstellung Ihrer Website</title>
+<title>{{EMAIL_SUBJECT}}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0a0a0f;font-family:'Segoe UI',Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
@@ -16,21 +16,22 @@
       <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
         <!-- LOGO HEADER -->
+        {% if LOGO_URL %}
         <tr>
           <td align="center" style="padding:30px 0 40px;">
             <table cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="width:48px;height:48px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);border-radius:12px;" align="center" valign="middle">
-                  <span style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-1px;">O</span>
+                <td>
+                  <img src="{{LOGO_URL}}" alt="{{COMPANY_NAME}} Logo" style="display:block;max-width:150px;max-height:80px;">
                 </td>
                 <td style="padding-left:14px;">
-                  <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:0.5px;">OBSCURAS</span><br>
-                  <span style="color:#71717a;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Media Agency</span>
+                  <span style="color:#ffffff;font-size:28px;font-weight:600;letter-spacing:0.5px;">{{COMPANY_NAME}}</span>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
+        {% endif %}
 
         <!-- MAIN CARD -->
         <tr>
@@ -39,7 +40,7 @@
 
               <!-- GRADIENT ACCENT LINE -->
               <tr>
-                <td style="height:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6,#a855f7);border-radius:16px 16px 0 0;"></td>
+                <td style="height:4px;background:linear-gradient(90deg,{{THEME_PRIMARY_COLOR|default('#6366f1')}},{{THEME_SECONDARY_COLOR|default('#a855f7')}});border-radius:16px 16px 0 0;"></td>
               </tr>
 
               <!-- CONTENT -->
@@ -47,55 +48,62 @@
                 <td style="padding:48px 44px;">
 
                   <!-- GREETING -->
+                  {% if CONTENT_GREETING %}
                   <p style="margin:0 0 28px;color:#fafafa;font-size:17px;line-height:1.7;">
-                    Sehr geehrte Damen und Herren der Kanzlei <strong style="color:#a78bfa;">Kompetenz im Recht</strong>,
+                    {{CONTENT_GREETING}}
                   </p>
+                  {% endif %}
 
                   <!-- INTRO -->
+                  {% if CONTENT_INTRO %}
                   <p style="margin:0 0 24px;color:#a1a1aa;font-size:15px;line-height:1.8;">
-                    bei der Nutzung Ihrer Website 
-<a href="https://kompetenz-im-recht.de" style="color:#818cf8;text-decoration:none;border-bottom:1px solid #818cf8;">https://kompetenz-im-recht.de</a> 
-auf mobilen Endgeräten ist mir folgende Problematik aufgefallen:
-
+                    {{CONTENT_INTRO}}
                   </p>
+                  {% endif %}
 
                   <!-- HIGHLIGHT BOX -->
+                  {% if CONTENT_HIGHLIGHT %}
                   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
                     <tr>
                       <td style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 100%);padding:20px 24px;border-radius:12px;border-left:4px solid #818cf8;">
                         <p style="margin:0;color:#e0e7ff;font-size:14px;line-height:1.7;font-style:italic;">
-                          „Auf mobilen Endgeräten wird der Text teilweise abgeschnitten und das Menü überlagert den Seiteninhalt."
+                          „{{CONTENT_HIGHLIGHT}}"
                         </p>
                       </td>
                     </tr>
                   </table>
+                  {% endif %}
 
                   <!-- BODY PARAGRAPHS -->
-                  <p style="margin:0 0 20px;color:#a1a1aa;font-size:15px;line-height:1.8;">Da ein erheblicher Teil der Mandantensuche über Smartphones erfolgt, kann eine eingeschränkte mobile Darstellung den professionellen Gesamteindruck Ihrer Kanzlei beeinträchtigen.</p>
-<p style="margin:0 0 20px;color:#a1a1aa;font-size:15px;line-height:1.8;">Ich habe mich auf die <strong style="color:#d4d4d8;">technische Optimierung von Kanzlei-Websites</strong> spezialisiert – mit Fokus auf mobile Performance und barrierefreie Darstellung.</p>
-<p style="margin:0 0 20px;color:#a1a1aa;font-size:15px;line-height:1.8;">Gerne zeige ich Ihnen unverbindlich auf, welche Anpassungen sinnvoll wären – ob durch gezielte Korrekturen oder einen strukturellen Relaunch.</p>
+                  {{CONTENT_BODY}}
 
                   <!-- CTA BUTTON -->
-                  <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 36px;">
+                  {% if CONTENT_CTA_URL and CONTENT_CTA_TEXT %}
+                  <table cellpadding="0" cellspacing="0" border="0" style="margin:32px 0;">
                     <tr>
-                      <td align="center" style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);border-radius:10px;">
-                        <a href="https://obscuras-media-agency.de/kontakt" 
+                      <td align="center" style="background:linear-gradient(135deg,{{THEME_PRIMARY_COLOR|default('#6366f1')}} 0%,{{THEME_SECONDARY_COLOR|default('#8b5cf6')}} 100%);border-radius:10px;">
+                        <a href="{{CONTENT_CTA_URL}}" 
                            style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.3px;">
-                          Unverbindlich anfragen →
+                          {{CONTENT_CTA_TEXT}}
                         </a>
                       </td>
                     </tr>
                   </table>
+                  {% endif %}
 
                   <!-- SIGNATURE -->
-                  <table cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #27272a;padding-top:28px;">
+                  <table cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #27272a;margin-top:32px;">
                     <tr>
                       <td style="padding-top:24px;">
-                        <p style="margin:0 0 4px;color:#fafafa;font-size:15px;font-weight:600;">Sascha Gebel</p>
-                        <p style="margin:0 0 12px;color:#71717a;font-size:13px;">Gründer & Entwickler</p>
+                        <p style="margin:0 0 4px;color:#fafafa;font-size:15px;font-weight:600;">{{SENDER_NAME}}</p>
+                        {% if SENDER_TITLE %}
+                        <p style="margin:0 0 12px;color:#71717a;font-size:13px;">{{SENDER_TITLE}}</p>
+                        {% endif %}
                         <p style="margin:0;color:#52525b;font-size:12px;line-height:1.6;">
-                          Obscuras Media Agency<br>
-                          <a href="https://obscuras-media-agency.de" style="color:#6366f1;text-decoration:none;">obscuras-media-agency.de</a>
+                          {{COMPANY_NAME}}<br>
+                          {% if COMPANY_URL %}
+                          <a href="{{COMPANY_URL}}" style="color:#6366f1;text-decoration:none;">{{COMPANY_DOMAIN}}</a>
+                          {% endif %}
                         </p>
                       </td>
                     </tr>
@@ -111,13 +119,19 @@ auf mobilen Endgeräten ist mir folgende Problematik aufgefallen:
         <tr>
           <td align="center" style="padding:32px 20px;">
             <p style="margin:0 0 8px;color:#52525b;font-size:11px;letter-spacing:0.5px;">
-              © 2026 Obscuras Media Agency · Digitale Softwarelösungen
+              © {{YEAR}} {{COMPANY_NAME}}
             </p>
+            {% if COMPANY_URL %}
             <p style="margin:0;color:#3f3f46;font-size:11px;">
-              <a href="https://obscuras-media-agency.de/impressum" style="color:#52525b;text-decoration:none;">Impressum</a>
+              <a href="{{COMPANY_URL}}/impressum" style="color:#52525b;text-decoration:none;">Impressum</a>
               <span style="color:#3f3f46;padding:0 8px;">·</span>
-              <a href="https://obscuras-media-agency.de/datenschutz" style="color:#52525b;text-decoration:none;">Datenschutz</a>
+              <a href="{{COMPANY_URL}}/datenschutz" style="color:#52525b;text-decoration:none;">Datenschutz</a>
+              {% if UNSUBSCRIBE_URL %}
+              <span style="color:#3f3f46;padding:0 8px;">·</span>
+              <a href="{{UNSUBSCRIBE_URL}}" style="color:#52525b;text-decoration:none;">Abmelden</a>
+              {% endif %}
             </p>
+            {% endif %}
           </td>
         </tr>
 

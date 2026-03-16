@@ -11,12 +11,18 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView,
     QDialog, QLineEdit, QComboBox, QTextEdit,
     QDialogButtonBox, QMessageBox, QSplitter, QTabWidget,
-    QPlainTextEdit, QGroupBox, QCheckBox, QFormLayout
+    QPlainTextEdit, QGroupBox, QCheckBox, QFormLayout,
+    QFileDialog, QScrollArea, QFrame,
+    QRadioButton, QButtonGroup
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QMouseEvent
 
 from models.template import Template
+from utils.template_engine import (
+    list_templates, import_newsletter, html_to_plaintext,
+    detect_placeholder_format, TemplateInfo, ImportResult
+)
 
 # Optional: WebEngine for live preview
 _has_webengine = False
@@ -44,6 +50,334 @@ def load_company_settings() -> dict[str, Any]:
         except Exception:
             pass
     return {}
+
+
+class NewsletterImportDialog(QDialog):
+    """Dialog for importing external newsletters and converting them to local templates."""
+    
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Newsletter importieren")
+        self.setMinimumSize(700, 900)
+        self.import_result: ImportResult | None = None
+        self._setup_ui()
+    
+    def _setup_ui(self) -> None:
+        """Setup the import dialog UI."""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(16)
+        
+        # ═══════════════════════════════════════════════════════════
+        # INTRO
+        # ═══════════════════════════════════════════════════════════
+        intro = QLabel(
+            "Importieren Sie HTML-Newsletter von anderen Plattformen und konvertieren Sie sie "
+            "automatisch in lokale Templates. Platzhalter von Mailchimp, Sendinblue, HubSpot und "
+            "CleverReach werden automatisch erkannt und umgewandelt."
+        )
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: #a1a1aa; font-size: 13px;")
+        layout.addWidget(intro)
+        
+        # ═══════════════════════════════════════════════════════════
+        # SOURCE SELECTION
+        # ═══════════════════════════════════════════════════════════
+        source_group = QGroupBox("Quelle")
+        source_layout = QVBoxLayout(source_group)
+        
+        file_row = QHBoxLayout()
+        self.file_radio = QRadioButton("HTML-Datei importieren:")
+        self.file_radio.setChecked(True)
+        file_row.addWidget(self.file_radio)
+        
+        self.file_path = QLineEdit()
+        self.file_path.setPlaceholderText("Pfad zur HTML-Datei...")
+        self.file_path.setReadOnly(True)
+        file_row.addWidget(self.file_path, stretch=1)
+        
+        browse_btn = QPushButton("📁 Durchsuchen")
+        browse_btn.clicked.connect(self._browse_file)
+        file_row.addWidget(browse_btn)
+        source_layout.addLayout(file_row)
+        
+        paste_row = QHBoxLayout()
+        self.paste_radio = QRadioButton("HTML-Code einfügen:")
+        paste_row.addWidget(self.paste_radio)
+        paste_row.addStretch()
+        source_layout.addLayout(paste_row)
+        
+        self.html_input = QPlainTextEdit()
+        self.html_input.setPlaceholderText("HTML-Code hier einfügen...")
+        self.html_input.setMaximumHeight(150)
+        self.html_input.setFont(QFont("Consolas", 10))
+        source_layout.addWidget(self.html_input)
+        
+        # Group radio buttons
+        self.source_group = QButtonGroup()
+        self.source_group.addButton(self.file_radio, 0)
+        self.source_group.addButton(self.paste_radio, 1)
+        
+        layout.addWidget(source_group)
+        
+        # ═══════════════════════════════════════════════════════════
+        # DETECTED FORMAT
+        # ═══════════════════════════════════════════════════════════
+        format_group = QGroupBox("Erkanntes Format")
+        format_layout = QHBoxLayout(format_group)
+        
+        self.format_label = QLabel("Bitte HTML laden...")
+        self.format_label.setStyleSheet("color: #71717a;")
+        format_layout.addWidget(self.format_label)
+        
+        format_layout.addStretch()
+        
+        detect_btn = QPushButton("🔍 Format erkennen")
+        detect_btn.clicked.connect(self._detect_format)
+        format_layout.addWidget(detect_btn)
+        
+        layout.addWidget(format_group)
+        
+        # ═══════════════════════════════════════════════════════════
+        # OPTIONS
+        # ═══════════════════════════════════════════════════════════
+        options_group = QGroupBox("Import-Optionen")
+        options_layout = QFormLayout(options_group)
+        options_layout.setSpacing(12)
+        
+        self.template_name = QLineEdit()
+        self.template_name.setPlaceholderText("Name für das neue Template")
+        options_layout.addRow("Template-Name:", self.template_name)
+        
+        self.template_category = QComboBox()
+        self.template_category.addItems(["Importiert", "Allgemein", "Ärzte", "Kanzleien", "Immobilien"])
+        self.template_category.setEditable(True)
+        options_layout.addRow("Kategorie:", self.template_category)
+        
+        self.generate_plaintext = QCheckBox("Plaintext-Version automatisch erstellen")
+        self.generate_plaintext.setChecked(True)
+        options_layout.addRow(self.generate_plaintext)
+        
+        layout.addWidget(options_group)
+        
+        # ═══════════════════════════════════════════════════════════
+        # PREVIEW
+        # ═══════════════════════════════════════════════════════════
+        preview_group = QGroupBox("Vorschau der Konvertierung")
+        preview_layout = QVBoxLayout(preview_group)
+        
+        self.conversion_info = QTextEdit()
+        self.conversion_info.setReadOnly(True)
+        self.conversion_info.setMaximumHeight(120)
+        self.conversion_info.setPlaceholderText("Konvertierungsdetails werden hier angezeigt...")
+        preview_layout.addWidget(self.conversion_info)
+        
+        layout.addWidget(preview_group)
+        
+        # ═══════════════════════════════════════════════════════════
+        # BUTTONS
+        # ═══════════════════════════════════════════════════════════
+        button_layout = QHBoxLayout()
+        
+        self.import_btn = QPushButton("📥 Importieren")
+        self.import_btn.setObjectName("primaryButton")
+        self.import_btn.clicked.connect(self._do_import)
+        button_layout.addWidget(self.import_btn)
+        
+        cancel_btn = QPushButton("Abbrechen")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def _browse_file(self) -> None:
+        """Open file browser to select HTML file."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "HTML-Newsletter auswählen",
+            "",
+            "HTML-Dateien (*.html *.htm);;Alle Dateien (*)"
+        )
+        if file_path:
+            self.file_path.setText(file_path)
+            self.file_radio.setChecked(True)
+            self._detect_format()
+    
+    def _get_html_content(self) -> str:
+        """Get HTML content from selected source."""
+        if self.file_radio.isChecked() and self.file_path.text():
+            try:
+                with open(self.file_path.text(), 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                QMessageBox.warning(self, "Fehler", f"Datei konnte nicht gelesen werden: {e}")
+                return ""
+        else:
+            return self.html_input.toPlainText()
+    
+    def _detect_format(self) -> None:
+        """Detect the placeholder format of the HTML."""
+        html_content = self._get_html_content()
+        if not html_content:
+            self.format_label.setText("Kein HTML-Inhalt gefunden")
+            self.format_label.setStyleSheet("color: #ef4444;")
+            return
+        
+        detected = detect_placeholder_format(html_content)
+        
+        format_names = {
+            "mailchimp": "✉️ Mailchimp",
+            "sendinblue": "💙 Sendinblue/Brevo",
+            "hubspot": "🟠 HubSpot",
+            "cleverreach": "🔵 CleverReach",
+            "generic": "📄 Generisch",
+        }
+        
+        format_name = format_names.get(detected, detected)
+        self.format_label.setText(f"Erkannt: {format_name}")
+        self.format_label.setStyleSheet("color: #22c55e; font-weight: 500;")
+    
+    def _do_import(self) -> None:
+        """Perform the import operation."""
+        template_name = self.template_name.text().strip()
+        if not template_name:
+            QMessageBox.warning(self, "Fehler", "Bitte geben Sie einen Template-Namen ein.")
+            return
+        
+        html_content = self._get_html_content()
+        if not html_content:
+            QMessageBox.warning(self, "Fehler", "Kein HTML-Inhalt zum Importieren.")
+            return
+        
+        try:
+            # Import using the template engine
+            if self.file_radio.isChecked() and self.file_path.text():
+                result = import_newsletter(self.file_path.text())
+            else:
+                result = import_newsletter(html_content)
+            
+            self.import_result = result
+            
+            # Show conversion info
+            info_lines = [
+                f"✅ Import erfolgreich",
+                f"📝 Erkanntes Format: {result.source_format}",
+                f"🔄 Konvertierte Platzhalter: {len(result.converted_placeholders)}",
+            ]
+            
+            if result.converted_placeholders:
+                info_lines.append("\nKonvertierte Platzhalter:")
+                for old_p, new_p in list(result.converted_placeholders.items())[:5]:
+                    info_lines.append(f"  • {old_p} → {new_p}")
+                if len(result.converted_placeholders) > 5:
+                    info_lines.append(f"  ... und {len(result.converted_placeholders) - 5} weitere")
+            
+            if result.warnings:
+                info_lines.append("\n⚠️ Warnungen:")
+                for warning in result.warnings[:3]:
+                    info_lines.append(f"  • {warning}")
+            
+            self.conversion_info.setPlainText("\n".join(info_lines))
+            
+            # Accept dialog
+            self.accept()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Import-Fehler", f"Fehler beim Import: {e}")
+    
+    def get_result(self) -> tuple[str, str, ImportResult | None]:
+        """Get the import result."""
+        return (
+            self.template_name.text(),
+            self.template_category.currentText(),
+            self.import_result
+        )
+
+
+class BaseTemplateCard(QFrame):
+    """A card widget displaying a base template option."""
+    
+    def __init__(
+        self, 
+        template_info: TemplateInfo, 
+        on_select: Any = None,
+        parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self.template_info = template_info
+        self.on_select = on_select
+        self.selected = False
+        self._setup_ui()
+    
+    def _setup_ui(self) -> None:
+        """Setup the card UI."""
+        self.setFrameStyle(QFrame.Shape.Box)
+        self.setStyleSheet("""
+            BaseTemplateCard {
+                background-color: #18181b;
+                border: 1px solid #27272a;
+                border-radius: 8px;
+            }
+            BaseTemplateCard:hover {
+                border-color: #6366f1;
+            }
+        """)
+        self.setFixedSize(180, 140)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+        
+        # Template icon/preview
+        preview_label = QLabel("📄")
+        preview_label.setStyleSheet("font-size: 32px;")
+        preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(preview_label)
+        
+        # Template name
+        name_label = QLabel(self.template_info.name)
+        name_label.setStyleSheet("color: #fafafa; font-weight: 600; font-size: 13px;")
+        name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_label.setWordWrap(True)
+        layout.addWidget(name_label)
+        
+        # Template description
+        desc_label = QLabel(self.template_info.description or "")
+        desc_label.setStyleSheet("color: #71717a; font-size: 11px;")
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc_label.setWordWrap(True)
+        layout.addWidget(desc_label)
+        
+        layout.addStretch()
+    
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
+        """Handle click to select template."""
+        if self.on_select:
+            self.on_select(self.template_info)
+        super().mousePressEvent(a0)
+    
+    def set_selected(self, selected: bool) -> None:
+        """Update selection state."""
+        self.selected = selected
+        if selected:
+            self.setStyleSheet("""
+                BaseTemplateCard {
+                    background-color: #1e1b4b;
+                    border: 2px solid #6366f1;
+                    border-radius: 8px;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                BaseTemplateCard {
+                    background-color: #18181b;
+                    border: 1px solid #27272a;
+                    border-radius: 8px;
+                }
+                BaseTemplateCard:hover {
+                    border-color: #6366f1;
+                }
+            """)
 
 
 class TemplateEditorDialog(QDialog):
@@ -537,6 +871,7 @@ class TemplatesPage(QWidget):
         super().__init__(parent)
         self._setup_ui()
         self._load_templates()
+        self._load_base_templates()
     
     def _setup_ui(self):
         """Setup the templates page UI."""
@@ -557,13 +892,19 @@ class TemplatesPage(QWidget):
         
         header_layout.addStretch()
         
+        # Import newsletter button
+        self.import_btn = QPushButton("📥 Newsletter importieren")
+        self.import_btn.setToolTip("Externen Newsletter importieren und konvertieren")
+        self.import_btn.clicked.connect(self._import_newsletter)
+        header_layout.addWidget(self.import_btn)
+        
         # Category filter
         filter_label = QLabel("Kategorie:")
         filter_label.setStyleSheet("color: #a1a1aa;")
         header_layout.addWidget(filter_label)
         
         self.category_filter = QComboBox()
-        self.category_filter.addItems(["Alle", "Ärzte", "Kanzleien", "Immobilien"])
+        self.category_filter.addItems(["Alle", "Ärzte", "Kanzleien", "Immobilien", "Importiert"])
         self.category_filter.setFixedWidth(150)
         header_layout.addWidget(self.category_filter)
         
@@ -575,21 +916,97 @@ class TemplatesPage(QWidget):
         layout.addWidget(header)
         
         # ═══════════════════════════════════════════════════════════
+        # BASE TEMPLATES SECTION
+        # ═══════════════════════════════════════════════════════════
+        base_templates_group = QGroupBox("📋 Basis-Templates")
+        base_templates_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 14px;
+                font-weight: 600;
+                color: #fafafa;
+                border: 1px solid #27272a;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 16px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                padding: 0 8px;
+            }
+        """)
+        
+        base_layout = QVBoxLayout(base_templates_group)
+        base_layout.setSpacing(12)
+        
+        base_info = QLabel(
+            "Wählen Sie ein Basis-Template als Ausgangspunkt für neue E-Mails. "
+            "Eigene Templates können im Ordner 'templates/custom/' abgelegt werden."
+        )
+        base_info.setStyleSheet("color: #71717a; font-size: 12px;")
+        base_info.setWordWrap(True)
+        base_layout.addWidget(base_info)
+        
+        # Horizontal scroll area for template cards
+        scroll = QScrollArea()
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidgetResizable(True)
+        scroll.setFixedHeight(170)
+        scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background: transparent;
+            }
+        """)
+        
+        self.base_templates_widget = QWidget()
+        self.base_templates_layout = QHBoxLayout(self.base_templates_widget)
+        self.base_templates_layout.setContentsMargins(0, 0, 0, 0)
+        self.base_templates_layout.setSpacing(12)
+        
+        scroll.setWidget(self.base_templates_widget)
+        base_layout.addWidget(scroll)
+        
+        layout.addWidget(base_templates_group)
+        
+        # ═══════════════════════════════════════════════════════════
         # TEMPLATES TABLE
         # ═══════════════════════════════════════════════════════════
+        table_group = QGroupBox("📝 Meine Templates")
+        table_group.setStyleSheet("""
+            QGroupBox {
+                font-size: 14px;
+                font-weight: 600;
+                color: #fafafa;
+                border: 1px solid #27272a;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 16px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 12px;
+                padding: 0 8px;
+            }
+        """)
+        table_layout = QVBoxLayout(table_group)
+        
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
             "Name", "Kategorie", "Betreff", "Verwendet", "Aktionen"
         ])
         
-        header = self.table.horizontalHeader()
-        if header is not None:
-            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
-            header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-            header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        tbl_header = self.table.horizontalHeader()
+        if tbl_header is not None:
+            tbl_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            tbl_header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+            tbl_header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            tbl_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+            tbl_header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         
         self.table.setColumnWidth(1, 120)
         self.table.setColumnWidth(3, 100)
@@ -601,17 +1018,139 @@ class TemplatesPage(QWidget):
         if v_header is not None:
             v_header.setVisible(False)
         
-        layout.addWidget(self.table)
+        table_layout.addWidget(self.table)
+        layout.addWidget(table_group)
+    
+    def _load_base_templates(self) -> None:
+        """Load and display available base templates."""
+        # Clear existing
+        while self.base_templates_layout.count():
+            item = self.base_templates_layout.takeAt(0)
+            widget = item.widget() if item else None
+            if widget:
+                widget.deleteLater()
+        
+        # Get templates from template engine
+        templates = list_templates()
+        
+        self.template_cards: list[BaseTemplateCard] = []
+        
+        for tmpl in templates:
+            card = BaseTemplateCard(
+                template_info=tmpl,
+                on_select=self._on_base_template_selected
+            )
+            self.base_templates_layout.addWidget(card)
+            self.template_cards.append(card)
+        
+        # Add spacer at end
+        self.base_templates_layout.addStretch()
+    
+    def _on_base_template_selected(self, template_info: TemplateInfo) -> None:
+        """Handle base template selection."""
+        # Update selection visual
+        for card in self.template_cards:
+            card.set_selected(card.template_info.path == template_info.path)
+        
+        # Open editor with this base template
+        reply = QMessageBox.question(
+            self,
+            "Template verwenden",
+            f"Möchten Sie '{template_info.name}' als Basis für ein neues Template verwenden?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self._create_template_from_base(template_info)
+    
+    def _create_template_from_base(self, base: TemplateInfo) -> None:
+        """Create a new template based on a base template."""
+        # Load base template content
+        try:
+            with open(base.path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+        except Exception as e:
+            QMessageBox.warning(self, "Fehler", f"Template konnte nicht geladen werden: {e}")
+            return
+        
+        dialog = TemplateEditorDialog(parent=self)
+        dialog.html_editor.setPlainText(html_content)
+        dialog.name_edit.setPlaceholderText(f"z.B. {base.name} - Angepasst")
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            data = dialog.get_template_data()
+            self._load_templates()
+            QMessageBox.information(
+                self,
+                "Template erstellt",
+                f"Template '{data['name']}' wurde erstellt."
+            )
+    
+    def _import_newsletter(self) -> None:
+        """Open the newsletter import dialog."""
+        dialog = NewsletterImportDialog(parent=self)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            name, category, result = dialog.get_result()
+            
+            if result:
+                # Create new template from imported content
+                editor = TemplateEditorDialog(parent=self)
+                editor.name_edit.setText(name)
+                editor.category_combo.setCurrentText(category)
+                editor.html_editor.setPlainText(result.html_content)
+                
+                # Generate plaintext if requested
+                if dialog.generate_plaintext.isChecked():
+                    plaintext = html_to_plaintext(result.html_content)
+                    editor.text_editor.setPlainText(plaintext)
+                
+                # Show info about conversion
+                if result.converted_placeholders:
+                    placeholders = ", ".join(list(result.converted_placeholders.values())[:5])
+                    QMessageBox.information(
+                        self,
+                        "Import erfolgreich",
+                        f"Newsletter wurde importiert!\n\n"
+                        f"Erkanntes Format: {result.source_format}\n"
+                        f"Konvertierte Platzhalter: {len(result.converted_placeholders)}\n"
+                        f"Beispiele: {placeholders}"
+                    )
+                
+                if editor.exec() == QDialog.DialogCode.Accepted:
+                    data = editor.get_template_data()
+                    self._load_templates()
+                    QMessageBox.information(
+                        self,
+                        "Template erstellt",
+                        f"Importiertes Template '{data['name']}' wurde gespeichert."
+                    )
     
     def _load_templates(self):
         """Load templates from database."""
-        # Sample data
-        templates = [
-            ("Arztpraxen - Website", "Ärzte", "Ihre Praxis-Website: Verbesserungspotenzial", 3),
-            ("Kanzleien - Mobile", "Kanzleien", "Hinweis zur mobilen Darstellung", 2),
-            ("Immobilien - Verwaltung", "Immobilien", "Digitale Hausverwaltung", 1),
-            ("Standard Template", "Allgemein", "Kontaktaufnahme", 0),
-        ]
+        from models.database import SessionLocal
+        from models.template import Template
+        
+        templates: list[tuple[str, str, str, int]] = []
+        
+        try:
+            with SessionLocal() as session:
+                db_templates = session.query(Template).filter(
+                    Template.is_active == True  # noqa: E712
+                ).order_by(Template.name).all()
+                
+                for tpl in db_templates:
+                    # Cast attributes - at runtime these are actual values, not Column objects
+                    name: str = str(getattr(tpl, 'name', '') or '')
+                    category: str = str(getattr(tpl, 'category', 'Allgemein') or 'Allgemein')
+                    subject: str = str(getattr(tpl, 'subject_template', '') or '')
+                    usage: int = int(getattr(tpl, 'usage_count', 0) or 0)
+                    templates.append((name, category, subject, usage))
+        except Exception as e:
+            # Log error but don't crash - show empty table
+            from utils.logging_config import get_logger
+            logger = get_logger("gui.templates")
+            logger.warning(f"Konnte Templates nicht laden: {e}")
         
         self.table.setRowCount(len(templates))
         

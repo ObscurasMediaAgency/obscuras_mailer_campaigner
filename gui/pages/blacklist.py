@@ -155,14 +155,19 @@ class BlacklistPage(QWidget):
         stats_layout.setContentsMargins(0, 0, 0, 0)
         stats_layout.setSpacing(24)
         
-        for label, value, color in [
-            ("Gesamt", "47", "#fafafa"),
-            ("E-Mails", "42", "#ef4444"),
-            ("Domains", "5", "#f59e0b"),
-            ("Hard Bounces", "38", "#a1a1aa"),
-            ("Abmeldungen", "6", "#a1a1aa"),
-        ]:
-            stat_item = QLabel(f"{label}: <span style='color:{color};font-weight:600;'>{value}</span>")
+        # Store stat labels for dynamic updates
+        self.stat_labels: dict[str, QLabel] = {}
+        stat_configs = [
+            ("total", "Gesamt", "0", "#fafafa"),
+            ("emails", "E-Mails", "0", "#ef4444"),
+            ("domains", "Domains", "0", "#f59e0b"),
+            ("bounces", "Hard Bounces", "0", "#a1a1aa"),
+            ("unsubscribes", "Abmeldungen", "0", "#a1a1aa"),
+        ]
+        
+        for key, label_text, value, color in stat_configs:
+            stat_item = QLabel(f"{label_text}: <span style='color:{color};font-weight:600;'>{value}</span>")
+            self.stat_labels[key] = stat_item
             stats_layout.addWidget(stat_item)
         
         stats_layout.addStretch()
@@ -261,14 +266,47 @@ class BlacklistPage(QWidget):
     
     def _load_blacklist(self) -> None:
         """Load blacklist entries from database."""
-        # Sample data
-        entries = [
-            ("ungueltig@test.de", "E-Mail", "Hard Bounce", "31.01.2025 09:15"),
-            ("noreply@spam-domain.de", "E-Mail", "Hard Bounce", "30.01.2025 14:22"),
-            ("spam-domain.de", "Domain", "Manuell", "29.01.2025 11:00"),
-            ("abmeldung@firma.de", "E-Mail", "Unsubscribe", "28.01.2025 16:45"),
-            ("fake-email.com", "Domain", "Manuell", "27.01.2025 10:30"),
-        ]
+        from models.database import SessionLocal
+        from models.blacklist import BlacklistEntry, BlacklistType, BlacklistReason
+        
+        entries: list[tuple[str, str, str, str]] = []
+        
+        try:
+            with SessionLocal() as session:
+                db_entries = session.query(BlacklistEntry).order_by(
+                    BlacklistEntry.created_at.desc()
+                ).limit(100).all()
+                
+                reason_labels: dict[str, str] = {
+                    BlacklistReason.HARD_BOUNCE.value: "Hard Bounce",
+                    BlacklistReason.UNSUBSCRIBE.value: "Unsubscribe",
+                    BlacklistReason.COMPLAINT.value: "Beschwerde",
+                    BlacklistReason.MANUAL.value: "Manuell",
+                    BlacklistReason.INVALID.value: "Ungültig",
+                }
+                
+                type_labels: dict[str, str] = {
+                    BlacklistType.EMAIL.value: "E-Mail",
+                    BlacklistType.DOMAIN.value: "Domain",
+                }
+                
+                for entry in db_entries:
+                    # Use getattr to avoid type checker issues with SQLAlchemy columns
+                    value: str = str(getattr(entry, 'value', '') or '')
+                    entry_type_obj = getattr(entry, 'entry_type', None)
+                    reason_obj = getattr(entry, 'reason', None)
+                    created_at = getattr(entry, 'created_at', None)
+                    
+                    entry_type_val = entry_type_obj.value if entry_type_obj else "email"
+                    reason_val = reason_obj.value if reason_obj else "manual"
+                    type_label: str = type_labels.get(entry_type_val, "E-Mail")
+                    reason_label: str = reason_labels.get(reason_val, "Unbekannt")
+                    created: str = created_at.strftime("%d.%m.%Y %H:%M") if created_at else ""
+                    entries.append((value, type_label, reason_label, created))
+        except Exception as e:
+            from utils.logging_config import get_logger
+            logger = get_logger("gui.blacklist")
+            logger.warning(f"Konnte Blacklist nicht laden: {e}")
         
         self.table.setRowCount(len(entries))
         
@@ -303,6 +341,48 @@ class BlacklistPage(QWidget):
             
             self.table.setCellWidget(row, 4, actions)
             self.table.setRowHeight(row, 44)
+        
+        # Update stats
+        self._update_stats()
+    
+    def _update_stats(self) -> None:
+        """Update statistics bar from database."""
+        from models.database import SessionLocal
+        from models.blacklist import BlacklistEntry, BlacklistType, BlacklistReason
+        
+        try:
+            with SessionLocal() as session:
+                total = session.query(BlacklistEntry).count()
+                emails = session.query(BlacklistEntry).filter(
+                    BlacklistEntry.entry_type == BlacklistType.EMAIL
+                ).count()
+                domains = session.query(BlacklistEntry).filter(
+                    BlacklistEntry.entry_type == BlacklistType.DOMAIN
+                ).count()
+                bounces = session.query(BlacklistEntry).filter(
+                    BlacklistEntry.reason == BlacklistReason.HARD_BOUNCE
+                ).count()
+                unsubscribes = session.query(BlacklistEntry).filter(
+                    BlacklistEntry.reason == BlacklistReason.UNSUBSCRIBE
+                ).count()
+                
+                stats_data = {
+                    "total": ("Gesamt", str(total), "#fafafa"),
+                    "emails": ("E-Mails", str(emails), "#ef4444"),
+                    "domains": ("Domains", str(domains), "#f59e0b"),
+                    "bounces": ("Hard Bounces", str(bounces), "#a1a1aa"),
+                    "unsubscribes": ("Abmeldungen", str(unsubscribes), "#a1a1aa"),
+                }
+                
+                for key, (label_text, value, color) in stats_data.items():
+                    if key in self.stat_labels:
+                        self.stat_labels[key].setText(
+                            f"{label_text}: <span style='color:{color};font-weight:600;'>{value}</span>"
+                        )
+        except Exception as e:
+            from utils.logging_config import get_logger
+            logger = get_logger("gui.blacklist")
+            logger.warning(f"Konnte Blacklist-Statistiken nicht laden: {e}")
     
     def _add_entry(self) -> None:
         """Open dialog to add new blacklist entry."""

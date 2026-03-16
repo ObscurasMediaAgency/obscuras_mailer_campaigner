@@ -219,19 +219,25 @@ class DashboardPage(QWidget):
         stats_grid = QGridLayout()
         stats_grid.setSpacing(16)
         
-        cards = [
-            ("Aktive Kampagnen", "3", "2 laufen gerade", "#6366f1"),
-            ("Heute versendet", "47", "von 200 möglich", "#22c55e"),
-            ("Gesamt versendet", "1.234", "diesen Monat", "#8b5cf6"),
-            ("Bounce-Rate", "2.3%", "sehr gut", "#22c55e"),
+        # Card definitions with keys for later updates
+        card_defs = [
+            ("active_campaigns", "Aktive Kampagnen", "0", "wird geladen...", "#6366f1"),
+            ("sent_today", "Heute versendet", "0", "wird geladen...", "#22c55e"),
+            ("sent_month", "Gesamt versendet", "0", "diesen Monat", "#8b5cf6"),
+            ("bounce_rate", "Bounce-Rate", "0%", "wird geladen...", "#22c55e"),
         ]
         
-        for i, (title, value, sub, color) in enumerate(cards):
+        self.stat_cards: dict[str, StatCard] = {}
+        for i, (key, title, value, sub, color) in enumerate(card_defs):
             card = StatCard(title, value, sub, color)
             card.setMinimumHeight(140)
             stats_grid.addWidget(card, 0, i)
+            self.stat_cards[key] = card
         
         layout.addLayout(stats_grid)
+        
+        # Load actual stats from database
+        self._refresh_stats()
         
         # ═══════════════════════════════════════════════════════════
         # RECENT CAMPAIGNS
@@ -288,37 +294,12 @@ class DashboardPage(QWidget):
                 border-radius: 12px;
             }
         """)
-        activity_layout = QVBoxLayout(activity_frame)
-        activity_layout.setContentsMargins(20, 20, 20, 20)
-        activity_layout.setSpacing(12)
+        self.activity_layout = QVBoxLayout(activity_frame)
+        self.activity_layout.setContentsMargins(20, 20, 20, 20)
+        self.activity_layout.setSpacing(12)
         
-        # Sample activities
-        activities = [
-            ("✓", "E-Mail erfolgreich gesendet an praxis@hausarzt-mueller.de", "vor 2 Min", "#22c55e"),
-            ("✓", "E-Mail erfolgreich gesendet an info@zahnaerzte-park.de", "vor 4 Min", "#22c55e"),
-            ("⚠", "Bounce: mailbox@ungueltig.de - Mailbox not found", "vor 10 Min", "#f59e0b"),
-            ("ℹ", "Kampagne 'Arztpraxen' pausiert (Zeitfenster)", "vor 1 Std", "#6366f1"),
-        ]
-        
-        for icon, text, time, color in activities:
-            row = QWidget()
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            
-            icon_label = QLabel(icon)
-            icon_label.setStyleSheet(f"color: {color}; font-size: 14px;")
-            icon_label.setFixedWidth(24)
-            row_layout.addWidget(icon_label)
-            
-            text_label = QLabel(text)
-            text_label.setStyleSheet("color: #a1a1aa; font-size: 13px;")
-            row_layout.addWidget(text_label, stretch=1)
-            
-            time_label = QLabel(time)
-            time_label.setStyleSheet("color: #52525b; font-size: 12px;")
-            row_layout.addWidget(time_label)
-            
-            activity_layout.addWidget(row)
+        # Load activities from database
+        self._load_activities()
         
         layout.addWidget(activity_frame)
         
@@ -421,14 +402,104 @@ class DashboardPage(QWidget):
         
         return stats
     
+    def _refresh_stats(self) -> None:
+        """Refresh statistics cards from database."""
+        try:
+            stats = self._load_stats_from_db()
+            for key, card in self.stat_cards.items():
+                if key in stats:
+                    card.update_value(stats[key]['value'], stats[key].get('subtitle', ''))
+        except Exception as e:
+            logger.warning(f"Konnte Statistiken nicht laden: {e}")
+    
     def _refresh_campaigns(self):
         """Refresh campaign list."""
         self._load_campaigns()
     
     def _refresh_activities(self):
         """Refresh activity log."""
-        # Wird in zukünftiger Version implementiert
-        pass
+        self._load_activities()
+    
+    def _load_activities(self) -> None:
+        """Load recent activities from database."""
+        from datetime import datetime, timezone
+        
+        # Clear existing
+        while self.activity_layout.count():
+            item = self.activity_layout.takeAt(0)
+            widget = item.widget() if item else None
+            if widget is not None:
+                widget.deleteLater()
+        
+        activities: list[tuple[str, str, str, str]] = []
+        
+        try:
+            from models.database import SessionLocal
+            from models.send_log import SendLog, SendResult
+            
+            with SessionLocal() as session:
+                logs = session.query(SendLog).order_by(
+                    SendLog.sent_at.desc()
+                ).limit(10).all()
+                
+                for log in logs:
+                    # Determine icon and color based on result
+                    if log.result == SendResult.SUCCESS:
+                        icon, color = "✓", "#22c55e"
+                        text = f"E-Mail erfolgreich gesendet an {log.recipient_email}"
+                    elif log.result == SendResult.BOUNCE:
+                        icon, color = "⚠", "#f59e0b"
+                        msg = log.smtp_message[:30] if log.smtp_message else "Bounce"
+                        text = f"Bounce: {log.recipient_email} - {msg}"
+                    else:
+                        icon, color = "✖", "#ef4444"
+                        text = f"Fehler bei {log.recipient_email}"
+                    
+                    # Format time
+                    if log.sent_at:
+                        now = datetime.now(timezone.utc)
+                        diff = now - log.sent_at.replace(tzinfo=timezone.utc)
+                        if diff.seconds < 60:
+                            time_str = "gerade eben"
+                        elif diff.seconds < 3600:
+                            time_str = f"vor {diff.seconds // 60} Min"
+                        elif diff.seconds < 86400:
+                            time_str = f"vor {diff.seconds // 3600} Std"
+                        else:
+                            time_str = log.sent_at.strftime("%d.%m.%Y")
+                    else:
+                        time_str = ""
+                    
+                    activities.append((icon, text, time_str, color))
+                    
+        except Exception as e:
+            logger.warning(f"Konnte Aktivitäten nicht laden: {e}")
+        
+        if not activities:
+            no_data_label = QLabel("Keine Aktivitäten vorhanden")
+            no_data_label.setStyleSheet("color: #71717a; padding: 20px;")
+            no_data_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.activity_layout.addWidget(no_data_label)
+        else:
+            for icon, text, time_str, color in activities:
+                row = QWidget()
+                row_layout = QHBoxLayout(row)
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                
+                icon_label = QLabel(icon)
+                icon_label.setStyleSheet(f"color: {color}; font-size: 14px;")
+                icon_label.setFixedWidth(24)
+                row_layout.addWidget(icon_label)
+                
+                text_label = QLabel(text)
+                text_label.setStyleSheet("color: #a1a1aa; font-size: 13px;")
+                row_layout.addWidget(text_label, stretch=1)
+                
+                time_label = QLabel(time_str)
+                time_label.setStyleSheet("color: #52525b; font-size: 12px;")
+                row_layout.addWidget(time_label)
+                
+                self.activity_layout.addWidget(row)
     
     def _on_new_campaign(self) -> None:
         """Handle new campaign button click."""
