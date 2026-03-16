@@ -211,7 +211,13 @@ class StripeService:
             success, response = self._api_request(endpoint, data)
             
             if success and response.get("success"):
+                # checkout_url kann direkt oder unter "data" liegen
                 checkout_url = response.get("checkout_url", "")
+                if not checkout_url:
+                    data_obj = response.get("data", {})
+                    if isinstance(data_obj, dict):
+                        checkout_url = data_obj.get("checkout_url", "")
+                
                 if checkout_url:
                     logger.info(f"Checkout-Session erstellt für {customer_email or 'unbekannt'}")
                     return True, checkout_url
