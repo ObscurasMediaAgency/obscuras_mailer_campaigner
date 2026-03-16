@@ -49,6 +49,7 @@ class StripeService:
         self._endpoints: dict[str, str] = {}
         self._product: dict[str, Any] = {}
         self._checkout_urls: dict[str, str] = {}
+        self._payment_link: str = ""
         self._timeout: int = 30
         self._is_configured = False
         
@@ -72,11 +73,16 @@ class StripeService:
                     self._endpoints = config.get("endpoints", {})
                     self._product = config.get("product", {})
                     self._checkout_urls = config.get("checkout_urls", {})
+                    self._payment_link = config.get("payment_link", "")
                     self._timeout = config.get("timeout", 30)
                     
-                    if self._api_url:
+                    # Konfiguriert wenn API-URL oder direkter Payment-Link vorhanden
+                    if self._api_url or self._payment_link:
                         self._is_configured = True
-                        logger.info(f"License Server konfiguriert: {self._api_url}")
+                        if self._api_url:
+                            logger.info(f"License Server konfiguriert: {self._api_url}")
+                        if self._payment_link:
+                            logger.info("Direkter Payment-Link konfiguriert")
                     else:
                         logger.warning("License Server URL nicht konfiguriert")
             else:
@@ -87,8 +93,13 @@ class StripeService:
     
     @property
     def is_configured(self) -> bool:
-        """Check if the license server is configured."""
-        return self._is_configured and bool(self._api_url)
+        """Check if the license server or payment link is configured."""
+        return self._is_configured and (bool(self._api_url) or bool(self._payment_link))
+    
+    @property
+    def has_payment_link(self) -> bool:
+        """Check if a direct payment link is available."""
+        return bool(self._payment_link)
     
     @property
     def product_name(self) -> str:
@@ -177,10 +188,11 @@ class StripeService:
         customer_email: str | None = None
     ) -> tuple[bool, str]:
         """
-        Create a checkout session via the license server.
+        Create a checkout session via the license server or use direct payment link.
         
-        The server handles all Stripe communication - we just need the email.
-        After successful payment, the license key is sent via email.
+        Order of preference:
+        1. API-based checkout (dynamic, with customer email)
+        2. Direct Stripe Payment Link (fallback)
         
         Returns:
             (success, checkout_url_or_error)
@@ -188,25 +200,37 @@ class StripeService:
         if not self.is_configured:
             return False, "License Server nicht konfiguriert. Bitte config/license_server.yaml prüfen."
         
-        endpoint = self._endpoints.get("checkout", "/checkout.php")
+        # Versuche zuerst die API, falls konfiguriert
+        if self._api_url:
+            endpoint = self._endpoints.get("checkout", "/checkout.php")
+            
+            data: dict[str, Any] = {}
+            if customer_email:
+                data["email"] = customer_email
+            
+            success, response = self._api_request(endpoint, data)
+            
+            if success and response.get("success"):
+                checkout_url = response.get("checkout_url", "")
+                if checkout_url:
+                    logger.info(f"Checkout-Session erstellt für {customer_email or 'unbekannt'}")
+                    return True, checkout_url
+            
+            # API fehlgeschlagen - loggen und Fallback versuchen
+            error = response.get("error", "Server nicht erreichbar")
+            logger.warning(f"API-Checkout fehlgeschlagen: {error}")
         
-        data: dict[str, Any] = {}
-        if customer_email:
-            data["email"] = customer_email
+        # Fallback: Direkter Payment Link
+        if self._payment_link:
+            logger.info("Verwende direkten Payment-Link als Fallback")
+            return True, self._payment_link
         
-        success, response = self._api_request(endpoint, data)
-        
-        if success and response.get("success"):
-            checkout_url = response.get("checkout_url", "")
-            if checkout_url:
-                logger.info(f"Checkout-Session erstellt für {customer_email or 'unbekannt'}")
-                return True, checkout_url
-            else:
-                return False, "Keine Checkout-URL erhalten"
-        else:
-            error = response.get("error", "Unbekannter Fehler")
-            logger.error(f"Checkout-Fehler: {error}")
-            return False, f"Zahlungsfehler: {error}"
+        # Kein Fallback verfügbar
+        return False, (
+            "Checkout nicht verfügbar.\n\n"
+            "Der Lizenz-Server ist nicht erreichbar und kein alternativer Payment-Link konfiguriert.\n\n"
+            "Bitte kontaktieren Sie support@obscuras-media-agency.de für eine Lizenz."
+        )
     
     def open_checkout(self, customer_email: str | None = None) -> tuple[bool, str]:
         """

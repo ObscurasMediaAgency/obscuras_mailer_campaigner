@@ -37,5 +37,10 @@ checkout_urls:
   success: "https://mailer-campaigner.de/payment/success"
   cancel: "https://mailer-campaigner.de/payment/cancel"
 
+# Direkter Stripe Payment Link (Fallback wenn API nicht erreichbar)
+# Erstellen unter: https://dashboard.stripe.com/payment-links
+# Mit diesem Link können Kunden direkt bezahlen, auch ohne eigenen Server
+payment_link: ""
+
 # Timeout für API-Anfragen (in Sekunden)
 timeout: 30
