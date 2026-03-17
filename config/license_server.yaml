@@ -40,7 +40,7 @@ checkout_urls:
 # Direkter Stripe Payment Link (Fallback wenn API nicht erreichbar)
 # Erstellen unter: https://dashboard.stripe.com/payment-links
 # Mit diesem Link können Kunden direkt bezahlen, auch ohne eigenen Server
-payment_link: ""
+payment_link: "https://buy.stripe.com/eVq8wPcdU8NgezX0k23Nm00"
 
 # Timeout für API-Anfragen (in Sekunden)
 timeout: 30
