@@ -34,7 +34,7 @@ from typing import Optional, Tuple, List, Dict, Any
 
 APP_NAME = "Obscuras Mailer Campaigner"
 APP_ID = "obscuras-mailer-campaigner"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.1"
 MIN_PYTHON_VERSION = (3, 10)
 VENV_DIR = ".venv"
 CONFIG_FILE = ".install_config.json"
