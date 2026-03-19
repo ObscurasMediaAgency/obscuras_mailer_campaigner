@@ -83,10 +83,19 @@ class License(Base):
     # TRIAL METHODS
     # ═══════════════════════════════════════════════════════════════
     
+    def _ensure_aware(self, dt: datetime | None) -> datetime | None:
+        """Ensure datetime is timezone-aware (UTC)."""
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+
     @property
     def trial_end_date(self) -> datetime:
         """Calculate trial end date."""
-        return self.trial_start + timedelta(days=self.trial_days)
+        trial_start = self._ensure_aware(self.trial_start) or datetime.now(timezone.utc)
+        return trial_start + timedelta(days=self.trial_days)
     
     @property
     def trial_days_remaining(self) -> int:
@@ -112,7 +121,8 @@ class License(Base):
         """Check if license is currently valid (trial or pro)."""
         if self.license_type == LicenseType.PRO:
             if self.license_valid_until:
-                return datetime.now(timezone.utc) < self.license_valid_until
+                valid_until = self._ensure_aware(self.license_valid_until)
+                return datetime.now(timezone.utc) < valid_until # pyright: ignore[reportOperatorIssue]
             return True  # No expiry set
         
         return not self.is_trial_expired
@@ -167,7 +177,8 @@ class License(Base):
         """Reset daily email counter if it's a new day."""
         now = datetime.now(timezone.utc)
         if self.last_email_date:
-            if self.last_email_date.date() < now.date():
+            last_date = self._ensure_aware(self.last_email_date)
+            if last_date and last_date.date() < now.date():
                 self.emails_sent_today = 0
     
     # ═══════════════════════════════════════════════════════════════
